@@ -14,18 +14,16 @@ from reportlab.pdfbase import pdfmetrics
 from reportlab.pdfbase.ttfonts import TTFont
 
 # ---------------------------------------------------------
-# 讀取您上傳的字型檔 (NotoSansTC-VariableFont_wght.ttf)
+# 載入專案資料夾內的 NotoSansTC-VariableFont_wght.ttf 字型
 # ---------------------------------------------------------
 font_filename = "NotoSansTC-VariableFont_wght.ttf"
 
 if os.path.exists(font_filename):
-    # 載入 Matplotlib 字型
     fm.fontManager.addfont(font_filename)
     font_prop = fm.FontProperties(fname=font_filename)
     plt.rcParams['font.sans-serif'] = [font_prop.get_name(), 'DejaVu Sans']
     plt.rcParams['axes.unicode_minus'] = False
     
-    # 載入 ReportLab PDF 字型
     pdfmetrics.registerFont(TTFont('NotoSansTC', font_filename))
     pdf_font_name = 'NotoSansTC'
 else:
@@ -37,6 +35,14 @@ st.set_page_config(page_title="嬰幼兒護理與發展評估系統", page_icon=
 st.title("👶 嬰幼兒照護與發展評估系統")
 st.caption("醫護級到府照護專用 ｜ 整合國健署生長曲線與居托官方發展檢核")
 
+# 初始化 Session State 以進行跨頁連動
+if "baby_months" not in st.session_state:
+    st.session_state["baby_months"] = 4.0
+if "baby_gender" not in st.session_state:
+    st.session_state["baby_gender"] = "男寶寶"
+if "calc_done" not in st.session_state:
+    st.session_state["calc_done"] = False
+
 tab1, tab2 = st.tabs(["📈 生長百分位試算", "📋 居托發展檢核表"])
 
 # ==========================================
@@ -44,17 +50,44 @@ tab1, tab2 = st.tabs(["📈 生長百分位試算", "📋 居托發展檢核表"
 # ==========================================
 MONTHS_REF = np.array([0, 1, 2, 3, 4, 5, 6, 8, 10, 12, 15, 18, 21, 24])
 
-BOY_HEIGHT_50 = np.array([49.9, 54.7, 58.4, 61.4, 63.9, 65.9, 67.6, 70.6, 73.3, 75.7, 79.1, 82.3, 85.1, 87.8])
 BOY_HEIGHT_3  = np.array([46.1, 50.8, 54.4, 57.3, 59.7, 61.7, 63.3, 66.2, 68.7, 71.0, 74.1, 76.9, 79.4, 81.7])
+BOY_HEIGHT_15 = np.array([48.0, 52.7, 56.4, 59.3, 61.8, 63.8, 65.4, 68.4, 71.0, 73.3, 76.6, 79.6, 82.2, 84.7])
+BOY_HEIGHT_50 = np.array([49.9, 54.7, 58.4, 61.4, 63.9, 65.9, 67.6, 70.6, 73.3, 75.7, 79.1, 82.3, 85.1, 87.8])
+BOY_HEIGHT_85 = np.array([51.8, 56.7, 60.4, 63.5, 66.0, 68.0, 69.8, 72.8, 75.6, 78.1, 81.6, 85.0, 88.0, 90.9])
 BOY_HEIGHT_97 = np.array([53.7, 58.6, 62.4, 65.5, 68.0, 70.1, 71.9, 75.0, 77.9, 80.5, 84.2, 87.7, 90.9, 93.9])
 
-BOY_WEIGHT_50 = np.array([3.3, 4.5, 5.6, 6.4, 7.0, 7.5, 7.9, 8.6, 9.2, 9.6, 10.3, 10.9, 11.5, 12.2])
 BOY_WEIGHT_3  = np.array([2.5, 3.4, 4.3, 5.0, 5.6, 6.0, 6.4, 6.9, 7.4, 7.8, 8.4, 8.8, 9.2, 9.7])
+BOY_WEIGHT_15 = np.array([2.9, 3.9, 4.9, 5.7, 6.3, 6.7, 7.1, 7.7, 8.3, 8.7, 9.3, 9.8, 10.3, 10.9])
+BOY_WEIGHT_50 = np.array([3.3, 4.5, 5.6, 6.4, 7.0, 7.5, 7.9, 8.6, 9.2, 9.6, 10.3, 10.9, 11.5, 12.2])
+BOY_WEIGHT_85 = np.array([3.8, 5.1, 6.3, 7.2, 7.8, 8.4, 8.8, 9.6, 10.3, 10.8, 11.5, 12.3, 13.0, 13.7])
 BOY_WEIGHT_97 = np.array([4.4, 5.8, 7.1, 8.0, 8.7, 9.3, 9.8, 10.7, 11.4, 12.0, 12.8, 13.7, 14.5, 15.3])
 
-BOY_HEAD_50   = np.array([34.5, 36.9, 38.3, 39.5, 40.5, 41.3, 42.0, 43.1, 44.0, 44.7, 45.7, 46.5, 47.2, 47.8])
 BOY_HEAD_3    = np.array([32.1, 34.4, 35.8, 37.0, 37.9, 38.7, 39.3, 40.4, 41.2, 41.9, 42.8, 43.6, 44.2, 44.8])
+BOY_HEAD_15   = np.array([33.3, 35.6, 37.0, 38.2, 39.2, 40.0, 40.6, 41.7, 42.6, 43.3, 44.2, 45.0, 45.7, 46.3])
+BOY_HEAD_50   = np.array([34.5, 36.9, 38.3, 39.5, 40.5, 41.3, 42.0, 43.1, 44.0, 44.7, 45.7, 46.5, 47.2, 47.8])
+BOY_HEAD_85   = np.array([35.7, 38.1, 39.5, 40.8, 41.8, 42.6, 43.3, 44.4, 45.4, 46.1, 47.1, 48.0, 48.7, 49.3])
 BOY_HEAD_97   = np.array([36.9, 39.4, 40.8, 42.1, 43.1, 43.9, 44.7, 45.8, 46.8, 47.6, 48.6, 49.5, 50.2, 50.9])
+
+# 百分位計算邏輯
+def calculate_percentile(age, val, ref3, ref15, ref50, ref85, ref97):
+    p3 = np.interp(age, MONTHS_REF, ref3)
+    p15 = np.interp(age, MONTHS_REF, ref15)
+    p50 = np.interp(age, MONTHS_REF, ref50)
+    p85 = np.interp(age, MONTHS_REF, ref85)
+    p97 = np.interp(age, MONTHS_REF, ref97)
+    
+    if val < p3:
+        return "< 3rd (偏低)"
+    elif val < p15:
+        return "3rd ~ 15th"
+    elif val < p50:
+        return "15th ~ 50th"
+    elif val < p85:
+        return "50th ~ 85th"
+    elif val <= p97:
+        return "85th ~ 97th"
+    else:
+        return "> 97th (偏高)"
 
 def generate_curve(ref_3, ref_50, ref_97, x_mesh):
     p50 = np.interp(x_mesh, MONTHS_REF, ref_50)
@@ -98,7 +131,7 @@ def plot_official_growth_chart(title_text, x_age, y_val, ylabel_text, ref_3, ref
                     ha='left', fontweight='bold', color='#D81B60',
                     bbox=dict(boxstyle="round,pad=0.3", fc="#FFF9C4", ec="#FF4081", lw=1, alpha=0.9))
         ax.set_title(title_text, fontsize=13, fontweight='bold', pad=10)
-        ax.set_xlabel('Age (Months)', fontsize=10)
+        ax.set_xlabel('月齡 (個月)', fontsize=10)
         ax.set_ylabel(ylabel_text, fontsize=10)
 
     ax.set_xlim(0, 25)
@@ -129,6 +162,9 @@ with tab1:
     days = (measure_date - birthday).days
     months = round(days / 30.44, 1)
     
+    st.session_state["baby_months"] = months
+    st.session_state["baby_gender"] = gender
+    
     st.info(f"💡 目前計算精確月齡為：**{months} 個月** ({days} 天)")
     
     st.subheader("輸入測量數據")
@@ -141,14 +177,28 @@ with tab1:
         head = st.number_input("頭圍 (cm)", min_value=25.0, max_value=60.0, value=43.0, step=0.1)
         
     if st.button("🚀 開始計算生長百分位並繪圖"):
+        st.session_state["calc_done"] = True
+        
+        # 計算三個百分位落點
+        h_pct = calculate_percentile(months, height, BOY_HEIGHT_3, BOY_HEIGHT_15, BOY_HEIGHT_50, BOY_HEIGHT_85, BOY_HEIGHT_97)
+        w_pct = calculate_percentile(months, weight, BOY_WEIGHT_3, BOY_WEIGHT_15, BOY_WEIGHT_50, BOY_WEIGHT_85, BOY_WEIGHT_97)
+        head_pct = calculate_percentile(months, head, BOY_HEAD_3, BOY_HEAD_15, BOY_HEAD_50, BOY_HEAD_85, BOY_HEAD_97)
+        
+        st.session_state["h_pct"] = h_pct
+        st.session_state["w_pct"] = w_pct
+        st.session_state["head_pct"] = head_pct
+        st.session_state["height_val"] = height
+        st.session_state["weight_val"] = weight
+        st.session_state["head_val"] = head
+        
         st.markdown("---")
         st.subheader("📊 評估結果分析與官方曲線圖")
         st.success(f"**【{gender}｜{months}個月】** 檢測成果：")
         
         m1, m2, m3 = st.columns(3)
-        m1.metric("身高百分位", "50% ~ 85%", f"{height} cm")
-        m2.metric("體重百分位", "50%", f"{weight} kg")
-        m3.metric("頭圍百分位", "50%", f"{head} cm")
+        m1.metric("身高百分位", h_pct, f"{height} cm")
+        m2.metric("體重百分位", w_pct, f"{weight} kg")
+        m3.metric("頭圍百分位", head_pct, f"{head} cm")
         
         st.markdown("""
         > **🩺 護理師綜合衛教評語：**  
@@ -172,72 +222,92 @@ with tab1:
 with tab2:
     st.header("兒童發展里程碑檢核")
     
+    # 依月齡自動判定預設階段 index
+    m = st.session_state.get("baby_months", 4.0)
+    default_idx = 0
+    if m < 6.0:
+        default_idx = 0
+    elif m < 9.0:
+        default_idx = 1
+    elif m < 12.0:
+        default_idx = 2
+    elif m < 18.0:
+        default_idx = 3
+    else:
+        default_idx = 4
+
+    stage_options = [
+        "4 個月（滿 4 個月至未滿 6 個月）", 
+        "6 個月（滿 6 個月至未滿 9 個月）", 
+        "9 個月（滿 9 個月至未滿 1 歲）", 
+        "12 個月/1歲（滿 12 個月至未滿 1 歲半）", 
+        "18 個月/1歲半（滿 18 個月至未滿 2 歲）"
+    ]
+
     stage = st.selectbox(
-        "請選擇檢核月齡階段（依居托中心官方標準）：",
-        ["4 個月（滿 4 個月至未滿 6 個月）", 
-         "6 個月（滿 6 個月至未滿 9 個月）", 
-         "9 個月（滿 9 個月至未滿 1 歲）", 
-         "12 個月/1歲（滿 12 個月至未滿 1 歲半）", 
-         "18 個月/1歲半（滿 18 個月至未滿 2 歲）"]
+        "請確認檢核月齡階段（系統已依輸入之出生日期自動帶入適齡階段）：",
+        stage_options,
+        index=default_idx
     )
     
     st.write("請依據寶寶近期的實際表現，勾選**「是」**或**「否」**：")
     st.caption("標註 ★ 為「關鍵警訊指標」")
     
+    # 居托標準問卷：normal_ans 代表「正常通過表現」的選項！
     questions_database = {
         "4 個月": [
-            {"id": 1, "text": "1. [動作] 仰臥時雙手掌均能自然地張開，不再一直緊握。", "star": False, "abnormal": "否"},
-            {"id": 2, "text": "2. [動作] 仰臥時雙手會在胸前互相靠近（不一定要碰到）。", "star": False, "abnormal": "否"},
-            {"id": 3, "text": "3. [警訊] ★ 仰臥不尋常地一直歪一邊，無法回正或自由轉動。", "star": True, "abnormal": "是"},
-            {"id": 4, "text": "4. [警訊] ★ 仰臥靜止不動時，身體的脊骨經常呈向固定一側，無法維持在中線上。", "star": True, "abnormal": "是"},
-            {"id": 5, "text": "5. [肌張力] 換尿布時感覺腿有明顯不尋常的阻力，不容易打開/彎曲。", "star": False, "abnormal": "是"},
-            {"id": 6, "text": "6. [警訊] ★ 使用左右手或左右腳的次數和力量明顯地不平均。", "star": True, "abnormal": "是"},
-            {"id": 7, "text": "7. [動作] 仰臥拉起時頭無法跟著身體抬起來，一直向後仰。", "star": False, "abnormal": "是"},
-            {"id": 8, "text": "8. [語言] 即使跟說話，也很少發出聲音。", "star": False, "abnormal": "是"},
-            {"id": 9, "text": "9. [警訊] ★ 眼睛可以跟在左右、提上到下拿無聲音的移動物體（離眼20cm）。", "star": True, "abnormal": "否"},
-            {"id": 10, "text": "10. [動作] 趴著時能以雙肘支撐，將頭抬起和地面垂直，並能維持數秒。", "star": False, "abnormal": "否"},
-            {"id": 11, "text": "11. [動作] 抱在肩上直立時，頭部和上半身能豎直至少10秒鐘，不會搖來晃去。", "star": False, "abnormal": "否"},
-            {"id": 12, "text": "12. [社交] ★ 面對面時能持續注視人臉，表現出對人的興趣。", "star": True, "abnormal": "否"}
+            {"id": 1, "text": "1. [動作] 仰臥時雙手掌均能自然地張開，不再一直緊握。", "star": False, "normal_ans": "是"},
+            {"id": 2, "text": "2. [動作] 仰臥時雙手會在胸前互相靠近（不一定要碰到）。", "star": False, "normal_ans": "是"},
+            {"id": 3, "text": "3. [警訊] ★ 仰臥不尋常地一直歪一邊，無法回正或自由轉動。", "star": True, "normal_ans": "否"},
+            {"id": 4, "text": "4. [警訊] ★ 仰臥靜止不動時，身體的脊骨經常呈向固定一側，無法維持在中線上。", "star": True, "normal_ans": "否"},
+            {"id": 5, "text": "5. [肌張力] 換尿布時感覺腿有明顯不尋常的阻力，不容易打開/彎曲。", "star": False, "normal_ans": "否"},
+            {"id": 6, "text": "6. [警訊] ★ 使用左右手或左右腳的次數和力量明顯地不平均。", "star": True, "normal_ans": "否"},
+            {"id": 7, "text": "7. [動作] 仰臥拉起時頭無法跟著身體抬起來，一直向後仰。", "star": False, "normal_ans": "否"},
+            {"id": 8, "text": "8. [語言] 即使跟說話，也很少發出聲音。", "star": False, "normal_ans": "否"},
+            {"id": 9, "text": "9. [警訊] ★ 眼睛可以跟在左右、提上到下拿無聲音的移動物體（離眼20cm）。", "star": True, "normal_ans": "是"},
+            {"id": 10, "text": "10. [動作] 趴著時能以雙肘支撐，將頭抬起和地面垂直，並能維持數秒。", "star": False, "normal_ans": "是"},
+            {"id": 11, "text": "11. [動作] 抱在肩上直立時，頭部和上半身能豎直至少10秒鐘，不會搖來晃去。", "star": False, "normal_ans": "是"},
+            {"id": 12, "text": "12. [社交] ★ 面對面時能持續注視人臉，表現出對人的興趣。", "star": True, "normal_ans": "是"}
         ],
         "6 個月": [
-            {"id": 1, "text": "1. [動作] 坐在大人大腿上或靠著沙發時，頭部與背部能維持直立。", "star": False, "abnormal": "否"},
-            {"id": 2, "text": "2. [動作] 仰臥時能順利翻身成俯臥（趴姿）。", "star": False, "abnormal": "否"},
-            {"id": 3, "text": "3. [動作] 看到喜歡的物品會主動伸出雙手去抓取。", "star": False, "abnormal": "否"},
-            {"id": 4, "text": "4. [警訊] ★ 抓到的玩具或物品能順暢地伸向嘴巴探索（口腔期）。", "star": True, "abnormal": "否"},
-            {"id": 5, "text": "5. [動作] 當一手拿著玩具時，能將玩具轉換到另一隻手（換手拿物）。", "star": False, "abnormal": "否"},
-            {"id": 6, "text": "6. [警訊] ★ 發出多種不連貫的音節（如：呀、噠、ㄅㄚ），且高興時會大聲叫。", "star": True, "abnormal": "否"},
-            {"id": 7, "text": "7. [語言] 在身後或側邊發出聲響時，會轉頭尋找聲源。", "star": False, "abnormal": "否"},
-            {"id": 8, "text": "8. [警訊] ★ 見到熟悉照顧者會展現笑臉，面對陌生人開始出現凝視或警戒（認生）。", "star": True, "abnormal": "否"}
+            {"id": 1, "text": "1. [動作] 坐在大人大腿上或靠著沙發時，頭部與背部能維持直立。", "star": False, "normal_ans": "是"},
+            {"id": 2, "text": "2. [動作] 仰臥時能順利翻身成俯臥（趴姿）。", "star": False, "normal_ans": "是"},
+            {"id": 3, "text": "3. [動作] 看到喜歡的物品會主動伸出雙手去抓取。", "star": False, "normal_ans": "是"},
+            {"id": 4, "text": "4. [警訊] ★ 抓到的玩具或物品能順暢地伸向嘴巴探索（口腔期）。", "star": True, "normal_ans": "是"},
+            {"id": 5, "text": "5. [動作] 當一手拿著玩具時，能將玩具轉換到另一隻手（換手拿物）。", "star": False, "normal_ans": "是"},
+            {"id": 6, "text": "6. [警訊] ★ 發出多種不連貫的音節（如：呀、噠、ㄅㄚ），且高興時會大聲叫。", "star": True, "normal_ans": "是"},
+            {"id": 7, "text": "7. [語言] 在身後或側邊發出聲響時，會轉頭尋找聲源。", "star": False, "normal_ans": "是"},
+            {"id": 8, "text": "8. [警訊] ★ 見到熟悉照顧者會展現笑臉，面對陌生人開始出現凝視或警戒（認生）。", "star": True, "normal_ans": "是"}
         ],
         "9 個月": [
-            {"id": 1, "text": "1. [動作] 不需支撐能獨自坐穩數分鐘（獨坐）。", "star": False, "abnormal": "否"},
-            {"id": 2, "text": "2. [動作] 能以雙手雙腳或腹部貼地向前爬行（爬行）。", "star": False, "abnormal": "否"},
-            {"id": 3, "text": "3. [警訊] ★ 能扶著欄杆或沙發自己拉著站起來（扶站）。", "star": True, "abnormal": "否"},
-            {"id": 4, "text": "4. [動作] 會用大拇指與食指指腹/指尖抓取小餅乾或小物品（精細抓握）。", "star": False, "abnormal": "否"},
-            {"id": 5, "text": "5. [動作] 會兩手各拿一個積木互相敲擊發出聲音。", "star": False, "abnormal": "否"},
-            {"id": 6, "text": "6. [警訊] ★ 開始發出重複的雙音節（如：ㄇㄚ-ㄇㄚ、ㄅㄚ-ㄅㄚ，不一定有意義）。", "star": True, "abnormal": "否"},
-            {"id": 7, "text": "7. [認知] 玩躲貓貓時，當玩具被手帕遮住，會主動掀開尋找（物體恆存）。", "star": False, "abnormal": "否"},
-            {"id": 8, "text": "8. [警訊] ★ 叫寶寶的名字時，會轉頭回應或做出反應。", "star": True, "abnormal": "否"}
+            {"id": 1, "text": "1. [動作] 不需支撐能獨自坐穩數分鐘（獨坐）。", "star": False, "normal_ans": "是"},
+            {"id": 2, "text": "2. [動作] 能以雙手雙腳或腹部貼地向前爬行（爬行）。", "star": False, "normal_ans": "是"},
+            {"id": 3, "text": "3. [警訊] ★ 能扶著欄杆或沙發自己拉著站起來（扶站）。", "star": True, "normal_ans": "是"},
+            {"id": 4, "text": "4. [動作] 會用大拇指與食指指腹/指尖抓取小餅乾或小物品（精細抓握）。", "star": False, "normal_ans": "是"},
+            {"id": 5, "text": "5. [動作] 會兩手各拿一個積木互相敲擊發出聲音。", "star": False, "normal_ans": "是"},
+            {"id": 6, "text": "6. [警訊] ★ 開始發出重複的雙音節（如：ㄇㄚ-ㄇㄚ、ㄅㄚ-ㄅㄚ，不一定有意義）。", "star": True, "normal_ans": "是"},
+            {"id": 7, "text": "7. [認知] 玩躲貓貓時，當玩具被手帕遮住，會主動掀開尋找（物體恆存）。", "star": False, "normal_ans": "是"},
+            {"id": 8, "text": "8. [警訊] ★ 叫寶寶的名字時，會轉頭回應或做出反應。", "star": True, "normal_ans": "是"}
         ],
         "12 個月": [
-            {"id": 1, "text": "1. [動作] 能扶著傢俱靈活橫向移動（扶走），或獨立站立數秒。", "star": False, "abnormal": "否"},
-            {"id": 2, "text": "2. [警訊] ★ 不扶任何人或物品，能獨立向前行走 3–5 步（獨走）。", "star": True, "abnormal": "否"},
-            {"id": 3, "text": "3. [動作] 會用精準的大拇指與食指尖捏起細小物品（鉗狀抓握）。", "star": False, "abnormal": "否"},
-            {"id": 4, "text": "4. [語言] 能有意義地喊出「爸爸」或「媽媽」（指著特定人講）。", "star": False, "abnormal": "否"},
-            {"id": 5, "text": "5. [警訊] ★ 能用頭或手勢表示需求（如：揮手表示掰掰、搖頭表示不要）。", "star": True, "abnormal": "否"},
-            {"id": 6, "text": "6. [認知] 聽懂簡單命令（如：「不可以」、「拿給媽媽」）。", "star": False, "abnormal": "否"},
-            {"id": 7, "text": "7. [警訊] ★ 當問「XX在哪裡？」時，能用手指指向熟悉的人或物品。", "star": True, "abnormal": "否"},
-            {"id": 8, "text": "8. [警訊] ★ 會模仿大人的簡單動作（如：揮手、拍手、按按鈕）。", "star": True, "abnormal": "否"}
+            {"id": 1, "text": "1. [動作] 能扶著傢俱靈活橫向移動（扶走），或獨立站立數秒。", "star": False, "normal_ans": "是"},
+            {"id": 2, "text": "2. [警訊] ★ 不扶任何人或物品，能獨立向前行走 3–5 步（獨走）。", "star": True, "normal_ans": "是"},
+            {"id": 3, "text": "3. [動作] 會用精準的大拇指與食指尖捏起細小物品（鉗狀抓握）。", "star": False, "normal_ans": "是"},
+            {"id": 4, "text": "4. [語言] 能有意義地喊出「爸爸」或「媽媽」（指著特定人講）。", "star": False, "normal_ans": "是"},
+            {"id": 5, "text": "5. [警訊] ★ 能用頭或手勢表示需求（如：揮手表示掰掰、搖頭表示不要）。", "star": True, "normal_ans": "是"},
+            {"id": 6, "text": "6. [認知] 聽懂簡單命令（如：「不可以」、「拿給媽媽」）。", "star": False, "normal_ans": "是"},
+            {"id": 7, "text": "7. [警訊] ★ 當問「XX在哪裡？」時，能用手指指向熟悉的人或物品。", "star": True, "normal_ans": "是"},
+            {"id": 8, "text": "8. [警訊] ★ 會模仿大人的簡單動作（如：揮手、拍手、按按鈕）。", "star": True, "normal_ans": "是"}
         ],
         "18 個月": [
-            {"id": 1, "text": "1. [動作] 獨立行走非常穩定，鮮少跌倒，且能嘗試向前慢跑。", "star": False, "abnormal": "否"},
-            {"id": 2, "text": "2. [動作] 能扶著牆壁或大人手，雙膝配合一階一階登上樓梯。", "star": False, "abnormal": "否"},
-            {"id": 3, "text": "3. [警訊] ★ 能將 2–3 塊積木成功對齊疊高。", "star": True, "abnormal": "否"},
-            {"id": 4, "text": "4. [動作] 會拿筆在紙上自發性亂塗畫出線條。", "star": False, "abnormal": "否"},
-            {"id": 5, "text": "5. [警訊] ★ 除了爸爸媽媽，能清晰講出至少 3–5 個有意義的單字。", "star": True, "abnormal": "否"},
-            {"id": 6, "text": "6. [認知] 能指出自己的至少 1 個身體部位（如：眼睛、鼻子、手）。", "star": False, "abnormal": "否"},
-            {"id": 7, "text": "7. [自理] 會嘗試自己拿湯匙舀東西吃，或拿杯子喝水。", "star": False, "abnormal": "否"},
-            {"id": 8, "text": "8. [警訊] ★ 開始展現主見，不順心時會哭鬧，或常說「不要」。", "star": True, "abnormal": "否"}
+            {"id": 1, "text": "1. [動作] 獨立行走非常穩定，鮮少跌倒，且能嘗試向前慢跑。", "star": False, "normal_ans": "是"},
+            {"id": 2, "text": "2. [動作] 能扶著牆壁或大人手，雙膝配合一階一階登上樓梯。", "star": False, "normal_ans": "是"},
+            {"id": 3, "text": "3. [警訊] ★ 能將 2–3 塊積木成功對齊疊高。", "star": True, "normal_ans": "是"},
+            {"id": 4, "text": "4. [動作] 會拿筆在紙上自發性亂塗畫出線條。", "star": False, "abnormal": "是"},
+            {"id": 5, "text": "5. [警訊] ★ 除了爸爸媽媽，能清晰講出至少 3–5 個有意義的單字。", "star": True, "normal_ans": "是"},
+            {"id": 6, "text": "6. [認知] 能指出自己的至少 1 個身體部位（如：眼睛、鼻子、手）。", "star": False, "normal_ans": "是"},
+            {"id": 7, "text": "7. [自理] 會嘗試自己拿湯匙舀東西吃，或拿杯子喝水。", "star": False, "normal_ans": "是"},
+            {"id": 8, "text": "8. [警訊] ★ 開始展現主見，不順心時會哭鬧，或常說「不要」。", "star": True, "normal_ans": "是"}
         ]
     }
     
@@ -252,20 +322,22 @@ with tab2:
     
     for q in current_questions:
         ans = st.radio(q["text"], ["是", "否"], key=f"q_{selected_key}_{q['id']}", horizontal=True)
-        user_answers[q["id"]] = {"ans": ans, "star": q["star"], "abnormal": q["abnormal"]}
+        user_answers[q["id"]] = {"ans": ans, "star": q["star"], "normal_ans": q["normal_ans"]}
             
     if st.button("📋 提交發展檢核評估"):
         st.markdown("---")
-        star_fail = sum(1 for q_id, info in user_answers.items() if info["ans"] == info["abnormal"] and info["star"])
-        total_fail = sum(1 for q_id, info in user_answers.items() if info["ans"] == info["abnormal"])
+        # 計算未通過數量
+        star_fail = sum(1 for q_id, info in user_answers.items() if info["ans"] != info["normal_ans"] and info["star"])
+        total_fail = sum(1 for q_id, info in user_answers.items() if info["ans"] != info["normal_ans"])
         
         st.subheader("🎯 發展評估結果")
         
+        # 國健署標準：只要 1 題警訊未通過，或非警訊有 2 題未通過，即列為未達標準
         result_text = ""
         if star_fail >= 1 or total_fail >= 2:
-            result_text = "建議諮詢小兒科醫師"
-            st.error(f"**🔴 {result_text}（未達標準）**")
-            st.write(f"（檢測發現：有 {star_fail} 項關鍵警訊指標需注意，總計 {total_fail} 項未達標準）")
+            result_text = "建議諮詢小兒科醫師（未達標準）"
+            st.error(f"**🔴 {result_text}**")
+            st.write(f"（國健署檢核發現：有 {star_fail} 項關鍵警訊指標需注意，總計 {total_fail} 項未達標）")
         elif total_fail == 1:
             result_text = "持續觀察並於 2-4 週後複評"
             st.warning(f"**🟡 {result_text}**")
@@ -318,11 +390,15 @@ with tab2:
             
             today_str = datetime.date.today().strftime("%Y年%m月%d日")
             
+            h_pct_str = st.session_state.get("h_pct", "50th ~ 85th")
+            w_pct_str = st.session_state.get("w_pct", "50th")
+            head_pct_str = st.session_state.get("head_pct", "50th")
+            
             data = [
-                [Paragraph("<b>記錄日期</b>", body_style), Paragraph(today_str, body_style), Paragraph("<b>寶寶月齡</b>", body_style), Paragraph(f"{months} 個月", body_style)],
-                [Paragraph("<b>寶寶性別</b>", body_style), Paragraph(gender, body_style), Paragraph("<b>檢核階段</b>", body_style), Paragraph(stage, body_style)],
-                [Paragraph("<b>身高落點</b>", body_style), Paragraph(f"{height} cm", body_style), Paragraph("<b>體重落點</b>", body_style), Paragraph(f"{weight} kg", body_style)],
-                [Paragraph("<b>頭圍落點</b>", body_style), Paragraph(f"{head} cm", body_style), Paragraph("<b>評估結果</b>", body_style), Paragraph(result_text, body_style)],
+                [Paragraph("<b>記錄日期</b>", body_style), Paragraph(today_str, body_style), Paragraph("<b>寶寶月齡</b>", body_style), Paragraph(f"{st.session_state.get('baby_months', 4.0)} 個月", body_style)],
+                [Paragraph("<b>寶寶性別</b>", body_style), Paragraph(st.session_state.get("baby_gender", "男寶寶"), body_style), Paragraph("<b>檢核階段</b>", body_style), Paragraph(stage, body_style)],
+                [Paragraph("<b>身高落點</b>", body_style), Paragraph(f"{h_pct_str}", body_style), Paragraph("<b>體重落點</b>", body_style), Paragraph(f"{w_pct_str}", body_style)],
+                [Paragraph("<b>頭圍落點</b>", body_style), Paragraph(f"{head_pct_str}", body_style), Paragraph("<b>評估結果</b>", body_style), Paragraph(result_text, body_style)],
             ]
             
             t = Table(data, colWidths=[80, 170, 80, 190])
