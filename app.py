@@ -339,7 +339,7 @@ with tab2:
         st.subheader("📄 下載寶寶童趣海報日誌")
         st.write("您可以將本次測量與檢核結果下載成圖文海報保存：")
         
-        # 可愛圖文海報風格 PDF
+        # 可愛圖文海報風格 PDF（純文字符號、完全防框框）
         def create_poster_pdf():
             buffer = io.BytesIO()
             doc = SimpleDocTemplate(buffer, pagesize=letter, leftMargin=30, rightMargin=30, topMargin=30, bottomMargin=30)
@@ -391,9 +391,9 @@ with tab2:
                 textColor=colors.HexColor('#4A148C')
             )
             
-            elements.append(Paragraph("<b>🎈 寶寶成長與發展日誌 🎈</b>", title_style))
+            elements.append(Paragraph("<b>【 寶寶成長與發展日誌 】</b>", title_style))
             elements.append(Spacer(1, 5))
-            elements.append(Paragraph("🐣 專屬到府護理照護紀錄 ｜ 陪伴寶寶快樂無憂長大 🐣", sub_style))
+            elements.append(Paragraph("專屬到府護理照護紀錄 ｜ 陪伴寶寶快樂無憂長大", sub_style))
             elements.append(Spacer(1, 15))
             
             today_str = datetime.date.today().strftime("%Y年%m月%d日")
@@ -405,10 +405,10 @@ with tab2:
             # 寶寶四大個人卡片
             data_cards = [
                 [
-                    Paragraph("<b>📅 記錄日期</b>", card_title_style),
-                    Paragraph("<b>👶 寶寶月齡</b>", card_title_style),
-                    Paragraph("<b>👑 寶寶性別</b>", card_title_style),
-                    Paragraph("<b>📋 檢核階段</b>", card_title_style)
+                    Paragraph("<b>記錄日期</b>", card_title_style),
+                    Paragraph("<b>寶寶月齡</b>", card_title_style),
+                    Paragraph("<b>寶寶性別</b>", card_title_style),
+                    Paragraph("<b>檢核階段</b>", card_title_style)
                 ],
                 [
                     Paragraph(f"<b>{today_str}</b>", card_val_style),
@@ -431,7 +431,7 @@ with tab2:
             elements.append(Spacer(1, 15))
             
             # 生長百分位亮點看板
-            elements.append(Paragraph("<b>📊 國健署生長百分位成就亮點</b>", ParagraphStyle('SectionHeader', fontName=f_name, fontSize=12, textColor=colors.HexColor('#FF6F00'))))
+            elements.append(Paragraph("<b>★ 國健署生長百分位成就亮點</b>", ParagraphStyle('SectionHeader', fontName=f_name, fontSize=12, textColor=colors.HexColor('#FF6F00'))))
             elements.append(Spacer(1, 6))
             
             h_val = st.session_state.get('height_val', 68.0)
@@ -440,9 +440,9 @@ with tab2:
             
             data_growth = [
                 [
-                    Paragraph(f"<b>📏 身高落點 ({h_val}cm)</b>", card_title_style),
-                    Paragraph(f"<b>⚖️ 體重落點 ({w_val}kg)</b>", card_title_style),
-                    Paragraph(f"<b>🧠 頭圍落點 ({head_val}cm)</b>", card_title_style)
+                    Paragraph(f"<b>身高落點 ({h_val}cm)</b>", card_title_style),
+                    Paragraph(f"<b>體重落點 ({w_val}kg)</b>", card_title_style),
+                    Paragraph(f"<b>頭圍落點 ({head_val}cm)</b>", card_title_style)
                 ],
                 [
                     Paragraph(f"<b>{h_pct_str}</b>", card_val_style),
@@ -465,7 +465,7 @@ with tab2:
             
             # 檢核結果貼紙
             data_result = [
-                [Paragraph("<b>🎯 居托官方發展檢核結果</b>", ParagraphStyle('R1', fontName=f_name, fontSize=10, textColor=colors.HexColor('#0277BD'), alignment=1))],
+                [Paragraph("<b>★ 居托官方發展檢核結果</b>", ParagraphStyle('R1', fontName=f_name, fontSize=10, textColor=colors.HexColor('#0277BD'), alignment=1))],
                 [Paragraph(f"<b>{result_text}</b>", ParagraphStyle('R2', fontName=f_name, fontSize=14, textColor=colors.HexColor('#2E7D32'), alignment=1))]
             ]
             t_result = Table(data_result, colWidths=[520])
@@ -484,7 +484,7 @@ with tab2:
             3. 若檢核發現警訊指標未通過，請保持平常心，下一次兒童健檢時可帶本卡片諮詢小兒科醫師。
             """
             
-            elements.append(Paragraph("<b>💌 護理師保母的溫馨小叮嚀：</b>", ParagraphStyle('AdviceHead', fontName=f_name, fontSize=11, textColor=colors.HexColor('#6A1B9A'))))
+            elements.append(Paragraph("<b>★ 護理師保母的溫馨小叮嚀：</b>", ParagraphStyle('AdviceHead', fontName=f_name, fontSize=11, textColor=colors.HexColor('#6A1B9A'))))
             elements.append(Spacer(1, 5))
             
             t_advice = Table([[Paragraph(advice_text, body_style)]], colWidths=[520])
