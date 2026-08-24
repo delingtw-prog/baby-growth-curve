@@ -14,7 +14,7 @@ from reportlab.pdfbase import pdfmetrics
 from reportlab.pdfbase.ttfonts import TTFont
 
 # ---------------------------------------------------------
-# 載入專案資料夾內的 NotoSansTC-VariableFont_wght.ttf 字型
+# 讀取專案內的 NotoSansTC-VariableFont_wght.ttf 字型
 # ---------------------------------------------------------
 font_filename = "NotoSansTC-VariableFont_wght.ttf"
 
@@ -35,13 +35,10 @@ st.set_page_config(page_title="嬰幼兒護理與發展評估系統", page_icon=
 st.title("👶 嬰幼兒照護與發展評估系統")
 st.caption("醫護級到府照護專用 ｜ 整合國健署生長曲線與居托官方發展檢核")
 
-# 初始化 Session State 以進行跨頁連動
 if "baby_months" not in st.session_state:
     st.session_state["baby_months"] = 4.0
 if "baby_gender" not in st.session_state:
     st.session_state["baby_gender"] = "男寶寶"
-if "calc_done" not in st.session_state:
-    st.session_state["calc_done"] = False
 
 tab1, tab2 = st.tabs(["📈 生長百分位試算", "📋 居托發展檢核表"])
 
@@ -68,7 +65,6 @@ BOY_HEAD_50   = np.array([34.5, 36.9, 38.3, 39.5, 40.5, 41.3, 42.0, 43.1, 44.0, 
 BOY_HEAD_85   = np.array([35.7, 38.1, 39.5, 40.8, 41.8, 42.6, 43.3, 44.4, 45.4, 46.1, 47.1, 48.0, 48.7, 49.3])
 BOY_HEAD_97   = np.array([36.9, 39.4, 40.8, 42.1, 43.1, 43.9, 44.7, 45.8, 46.8, 47.6, 48.6, 49.5, 50.2, 50.9])
 
-# 百分位計算邏輯
 def calculate_percentile(age, val, ref3, ref15, ref50, ref85, ref97):
     p3 = np.interp(age, MONTHS_REF, ref3)
     p15 = np.interp(age, MONTHS_REF, ref15)
@@ -131,7 +127,7 @@ def plot_official_growth_chart(title_text, x_age, y_val, ylabel_text, ref_3, ref
                     ha='left', fontweight='bold', color='#D81B60',
                     bbox=dict(boxstyle="round,pad=0.3", fc="#FFF9C4", ec="#FF4081", lw=1, alpha=0.9))
         ax.set_title(title_text, fontsize=13, fontweight='bold', pad=10)
-        ax.set_xlabel('月齡 (個月)', fontsize=10)
+        ax.set_xlabel('Age (Months)', fontsize=10)
         ax.set_ylabel(ylabel_text, fontsize=10)
 
     ax.set_xlim(0, 25)
@@ -177,9 +173,6 @@ with tab1:
         head = st.number_input("頭圍 (cm)", min_value=25.0, max_value=60.0, value=43.0, step=0.1)
         
     if st.button("🚀 開始計算生長百分位並繪圖"):
-        st.session_state["calc_done"] = True
-        
-        # 計算三個百分位落點
         h_pct = calculate_percentile(months, height, BOY_HEIGHT_3, BOY_HEIGHT_15, BOY_HEIGHT_50, BOY_HEIGHT_85, BOY_HEIGHT_97)
         w_pct = calculate_percentile(months, weight, BOY_WEIGHT_3, BOY_WEIGHT_15, BOY_WEIGHT_50, BOY_WEIGHT_85, BOY_WEIGHT_97)
         head_pct = calculate_percentile(months, head, BOY_HEAD_3, BOY_HEAD_15, BOY_HEAD_50, BOY_HEAD_85, BOY_HEAD_97)
@@ -222,7 +215,6 @@ with tab1:
 with tab2:
     st.header("兒童發展里程碑檢核")
     
-    # 依月齡自動判定預設階段 index
     m = st.session_state.get("baby_months", 4.0)
     default_idx = 0
     if m < 6.0:
@@ -253,7 +245,6 @@ with tab2:
     st.write("請依據寶寶近期的實際表現，勾選**「是」**或**「否」**：")
     st.caption("標註 ★ 為「關鍵警訊指標」")
     
-    # 居托標準問卷：normal_ans 代表「正常通過表現」的選項！
     questions_database = {
         "4 個月": [
             {"id": 1, "text": "1. [動作] 仰臥時雙手掌均能自然地張開，不再一直緊握。", "star": False, "normal_ans": "是"},
@@ -303,7 +294,7 @@ with tab2:
             {"id": 1, "text": "1. [動作] 獨立行走非常穩定，鮮少跌倒，且能嘗試向前慢跑。", "star": False, "normal_ans": "是"},
             {"id": 2, "text": "2. [動作] 能扶著牆壁或大人手，雙膝配合一階一階登上樓梯。", "star": False, "normal_ans": "是"},
             {"id": 3, "text": "3. [警訊] ★ 能將 2–3 塊積木成功對齊疊高。", "star": True, "normal_ans": "是"},
-            {"id": 4, "text": "4. [動作] 會拿筆在紙上自發性亂塗畫出線條。", "star": False, "abnormal": "是"},
+            {"id": 4, "text": "4. [動作] 會拿筆在紙上自發性亂塗畫出線條。", "star": False, "normal_ans": "是"},
             {"id": 5, "text": "5. [警訊] ★ 除了爸爸媽媽，能清晰講出至少 3–5 個有意義的單字。", "star": True, "normal_ans": "是"},
             {"id": 6, "text": "6. [認知] 能指出自己的至少 1 個身體部位（如：眼睛、鼻子、手）。", "star": False, "normal_ans": "是"},
             {"id": 7, "text": "7. [自理] 會嘗試自己拿湯匙舀東西吃，或拿杯子喝水。", "star": False, "normal_ans": "是"},
@@ -326,18 +317,16 @@ with tab2:
             
     if st.button("📋 提交發展檢核評估"):
         st.markdown("---")
-        # 計算未通過數量
         star_fail = sum(1 for q_id, info in user_answers.items() if info["ans"] != info["normal_ans"] and info["star"])
         total_fail = sum(1 for q_id, info in user_answers.items() if info["ans"] != info["normal_ans"])
         
         st.subheader("🎯 發展評估結果")
         
-        # 國健署標準：只要 1 題警訊未通過，或非警訊有 2 題未通過，即列為未達標準
         result_text = ""
         if star_fail >= 1 or total_fail >= 2:
             result_text = "建議諮詢小兒科醫師（未達標準）"
             st.error(f"**🔴 {result_text}**")
-            st.write(f"（國健署檢核發現：有 {star_fail} 項關鍵警訊指標需注意，總計 {total_fail} 項未達標）")
+            st.write(f"（檢測發現：有 {star_fail} 項關鍵警訊指標需注意，總計 {total_fail} 項未達標準）")
         elif total_fail == 1:
             result_text = "持續觀察並於 2-4 週後複評"
             st.warning(f"**🟡 {result_text}**")
@@ -347,96 +336,173 @@ with tab2:
             st.balloons()
             
         st.markdown("---")
-        st.subheader("📄 下載寶寶成長紀念卡")
-        st.write("您可以將本次測量與檢核結果下載成溫馨卡片保存：")
+        st.subheader("📄 下載寶寶童趣海報日誌")
+        st.write("您可以將本次測量與檢核結果下載成圖文海報保存：")
         
-        def create_warm_pdf():
+        # 可愛圖文海報風格 PDF
+        def create_poster_pdf():
             buffer = io.BytesIO()
-            doc = SimpleDocTemplate(buffer, pagesize=letter, leftMargin=36, rightMargin=36, topMargin=36, bottomMargin=36)
+            doc = SimpleDocTemplate(buffer, pagesize=letter, leftMargin=30, rightMargin=30, topMargin=30, bottomMargin=30)
             elements = []
             
             f_name = pdf_font_name
             
             title_style = ParagraphStyle(
-                name='WarmTitle',
+                name='PosterTitle',
                 fontName=f_name,
-                fontSize=20,
-                leading=24,
-                textColor=colors.HexColor('#D81B60'),
+                fontSize=22,
+                leading=26,
+                textColor=colors.HexColor('#FF5A8D'),
                 alignment=1
             )
             
             sub_style = ParagraphStyle(
-                name='WarmSub',
+                name='PosterSub',
+                fontName=f_name,
+                fontSize=10.5,
+                leading=15,
+                textColor=colors.HexColor('#795548'),
+                alignment=1
+            )
+            
+            card_title_style = ParagraphStyle(
+                name='CardTitle',
+                fontName=f_name,
+                fontSize=9.5,
+                leading=13,
+                textColor=colors.HexColor('#8D6E63'),
+                alignment=1
+            )
+
+            card_val_style = ParagraphStyle(
+                name='CardVal',
                 fontName=f_name,
                 fontSize=11,
-                leading=16,
-                textColor=colors.HexColor('#5D4037'),
+                leading=15,
+                textColor=colors.HexColor('#D81B60'),
                 alignment=1
             )
             
             body_style = ParagraphStyle(
-                name='WarmBody',
+                name='PosterBody',
                 fontName=f_name,
-                fontSize=10,
+                fontSize=9.5,
                 leading=15,
-                textColor=colors.HexColor('#3E2723')
+                textColor=colors.HexColor('#4A148C')
             )
             
-            elements.append(Paragraph("<b>🌸 寶寶成長與發展小卡 🌸</b>", title_style))
-            elements.append(Spacer(1, 6))
-            elements.append(Paragraph("專屬居家照護紀錄 ｜ 陪伴寶寶快樂健康成長", sub_style))
+            elements.append(Paragraph("<b>🎈 寶寶成長與發展日誌 🎈</b>", title_style))
+            elements.append(Spacer(1, 5))
+            elements.append(Paragraph("🐣 專屬到府護理照護紀錄 ｜ 陪伴寶寶快樂無憂長大 🐣", sub_style))
             elements.append(Spacer(1, 15))
             
             today_str = datetime.date.today().strftime("%Y年%m月%d日")
             
-            h_pct_str = st.session_state.get("h_pct", "50th ~ 85th")
-            w_pct_str = st.session_state.get("w_pct", "50th")
-            head_pct_str = st.session_state.get("head_pct", "50th")
+            h_pct_str = st.session_state.get("h_pct", "15th ~ 50th")
+            w_pct_str = st.session_state.get("w_pct", "15th ~ 50th")
+            head_pct_str = st.session_state.get("head_pct", "50th ~ 85th")
             
-            data = [
-                [Paragraph("<b>記錄日期</b>", body_style), Paragraph(today_str, body_style), Paragraph("<b>寶寶月齡</b>", body_style), Paragraph(f"{st.session_state.get('baby_months', 4.0)} 個月", body_style)],
-                [Paragraph("<b>寶寶性別</b>", body_style), Paragraph(st.session_state.get("baby_gender", "男寶寶"), body_style), Paragraph("<b>檢核階段</b>", body_style), Paragraph(stage, body_style)],
-                [Paragraph("<b>身高落點</b>", body_style), Paragraph(f"{h_pct_str}", body_style), Paragraph("<b>體重落點</b>", body_style), Paragraph(f"{w_pct_str}", body_style)],
-                [Paragraph("<b>頭圍落點</b>", body_style), Paragraph(f"{head_pct_str}", body_style), Paragraph("<b>評估結果</b>", body_style), Paragraph(result_text, body_style)],
+            # 寶寶四大個人卡片
+            data_cards = [
+                [
+                    Paragraph("<b>📅 記錄日期</b>", card_title_style),
+                    Paragraph("<b>👶 寶寶月齡</b>", card_title_style),
+                    Paragraph("<b>👑 寶寶性別</b>", card_title_style),
+                    Paragraph("<b>📋 檢核階段</b>", card_title_style)
+                ],
+                [
+                    Paragraph(f"<b>{today_str}</b>", card_val_style),
+                    Paragraph(f"<b>{st.session_state.get('baby_months', 4.0)} 個月</b>", card_val_style),
+                    Paragraph(f"<b>{st.session_state.get('baby_gender', '男寶寶')}</b>", card_val_style),
+                    Paragraph(f"<b>{stage.split('（')[0]}</b>", card_val_style)
+                ]
             ]
             
-            t = Table(data, colWidths=[80, 170, 80, 190])
-            t.setStyle(TableStyle([
-                ('BACKGROUND', (0,0), (-1,-1), colors.HexColor('#FFFDE7')),
-                ('GRID', (0,0), (-1,-1), 1, colors.HexColor('#FFE082')),
+            t_cards = Table(data_cards, colWidths=[130, 130, 130, 130])
+            t_cards.setStyle(TableStyle([
+                ('BACKGROUND', (0,0), (-1,-1), colors.HexColor('#FFF8E7')),
+                ('BOX', (0,0), (-1,-1), 1.5, colors.HexColor('#FFE082')),
+                ('INNERGRID', (0,0), (-1,-1), 1, colors.HexColor('#FFE082')),
                 ('ALIGN', (0,0), (-1,-1), 'CENTER'),
                 ('VALIGN', (0,0), (-1,-1), 'MIDDLE'),
                 ('PADDING', (0,0), (-1,-1), 8),
             ]))
-            elements.append(t)
-            elements.append(Spacer(1, 20))
+            elements.append(t_cards)
+            elements.append(Spacer(1, 15))
             
-            elements.append(Paragraph("<b>💌 護理師的溫馨小叮嚀：</b>", ParagraphStyle('Title2', fontName=f_name, fontSize=12, textColor=colors.HexColor('#880E4F'))))
+            # 生長百分位亮點看板
+            elements.append(Paragraph("<b>📊 國健署生長百分位成就亮點</b>", ParagraphStyle('SectionHeader', fontName=f_name, fontSize=12, textColor=colors.HexColor('#FF6F00'))))
             elements.append(Spacer(1, 6))
             
+            h_val = st.session_state.get('height_val', 68.0)
+            w_val = st.session_state.get('weight_val', 8.2)
+            head_val = st.session_state.get('head_val', 43.0)
+            
+            data_growth = [
+                [
+                    Paragraph(f"<b>📏 身高落點 ({h_val}cm)</b>", card_title_style),
+                    Paragraph(f"<b>⚖️ 體重落點 ({w_val}kg)</b>", card_title_style),
+                    Paragraph(f"<b>🧠 頭圍落點 ({head_val}cm)</b>", card_title_style)
+                ],
+                [
+                    Paragraph(f"<b>{h_pct_str}</b>", card_val_style),
+                    Paragraph(f"<b>{w_pct_str}</b>", card_val_style),
+                    Paragraph(f"<b>{head_pct_str}</b>", card_val_style)
+                ]
+            ]
+            
+            t_growth = Table(data_growth, colWidths=[173, 173, 174])
+            t_growth.setStyle(TableStyle([
+                ('BACKGROUND', (0,0), (-1,-1), colors.HexColor('#E8F5E9')),
+                ('BOX', (0,0), (-1,-1), 1.5, colors.HexColor('#A5D6A7')),
+                ('INNERGRID', (0,0), (-1,-1), 1, colors.HexColor('#A5D6A7')),
+                ('ALIGN', (0,0), (-1,-1), 'CENTER'),
+                ('VALIGN', (0,0), (-1,-1), 'MIDDLE'),
+                ('PADDING', (0,0), (-1,-1), 8),
+            ]))
+            elements.append(t_growth)
+            elements.append(Spacer(1, 15))
+            
+            # 檢核結果貼紙
+            data_result = [
+                [Paragraph("<b>🎯 居托官方發展檢核結果</b>", ParagraphStyle('R1', fontName=f_name, fontSize=10, textColor=colors.HexColor('#0277BD'), alignment=1))],
+                [Paragraph(f"<b>{result_text}</b>", ParagraphStyle('R2', fontName=f_name, fontSize=14, textColor=colors.HexColor('#2E7D32'), alignment=1))]
+            ]
+            t_result = Table(data_result, colWidths=[520])
+            t_result.setStyle(TableStyle([
+                ('BACKGROUND', (0,0), (-1,-1), colors.HexColor('#E1F5FE')),
+                ('BOX', (0,0), (-1,-1), 1.5, colors.HexColor('#81D4FA')),
+                ('PADDING', (0,0), (-1,-1), 10),
+            ]))
+            elements.append(t_result)
+            elements.append(Spacer(1, 15))
+            
+            # 溫馨叮嚀框
             advice_text = """
-            1. 每個寶寶都有獨立發展的步調，建議持續觀察並維持規律的作息與營養。<br/>
-            2. 定期記錄身高、體重與頭圍，只要曲線穩定沿著百分位區間成長就是好棒棒！<br/>
+            1. 每個寶寶都有獨立發展的步調，請持續保持規律作息與充足營養！<br/>
+            2. 定期記錄身高、體重與頭圍，只要曲線穩定沿著百分位區間成長就是棒棒噠！<br/>
             3. 若檢核發現警訊指標未通過，請保持平常心，下一次兒童健檢時可帶本卡片諮詢小兒科醫師。
             """
             
-            advice_table = Table([[Paragraph(advice_text, body_style)]], colWidths=[520])
-            advice_table.setStyle(TableStyle([
+            elements.append(Paragraph("<b>💌 護理師保母的溫馨小叮嚀：</b>", ParagraphStyle('AdviceHead', fontName=f_name, fontSize=11, textColor=colors.HexColor('#6A1B9A'))))
+            elements.append(Spacer(1, 5))
+            
+            t_advice = Table([[Paragraph(advice_text, body_style)]], colWidths=[520])
+            t_advice.setStyle(TableStyle([
                 ('BACKGROUND', (0,0), (-1,-1), colors.HexColor('#F3E5F5')),
-                ('BOX', (0,0), (-1,-1), 1, colors.HexColor('#CE93D8')),
+                ('BOX', (0,0), (-1,-1), 1.5, colors.HexColor('#CE93D8')),
                 ('PADDING', (0,0), (-1,-1), 10),
             ]))
+            elements.append(t_advice)
             
-            elements.append(advice_table)
             doc.build(elements)
             buffer.seek(0)
             return buffer
 
-        pdf_data = create_warm_pdf()
+        pdf_data = create_poster_pdf()
         st.download_button(
-            label="📥 下載寶寶成長紀念卡 (PDF)",
+            label="📥 下載寶寶童趣海報日誌 (PDF)",
             data=pdf_data,
-            file_name=f"寶寶成長紀念卡_{datetime.date.today()}.pdf",
+            file_name=f"寶寶成長海報日誌_{datetime.date.today()}.pdf",
             mime="application/pdf"
         )
