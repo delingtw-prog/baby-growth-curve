@@ -4,13 +4,18 @@ import numpy as np
 import matplotlib.pyplot as plt
 import matplotlib.font_manager as fm
 import os
+import io
+
+from reportlab.lib.pagesizes import letter
+from reportlab.platypus import SimpleDocTemplate, Paragraph, Spacer, Table, TableStyle
+from reportlab.lib.styles import getSampleStyleSheet, ParagraphStyle
+from reportlab.lib import colors
 
 # ---------------------------------------------------------
-# 使用系統內建中文字型（免下載，100% 解決中文亂碼）
+# 中文字型設定
 # ---------------------------------------------------------
 @st.cache_resource
 def get_chinese_font():
-    # 安裝並指定系統文泉驛正黑體
     os.system("apt-get update -qq && apt-get install -y fonts-wqy-zenhei > /dev/null 2>&1")
     font_path = "/usr/share/fonts/truetype/wqy/wqy-zenhei.ttc"
     if os.path.exists(font_path):
@@ -19,7 +24,6 @@ def get_chinese_font():
 
 font_prop = get_chinese_font()
 
-# 設定網頁標題與基本樣式
 st.set_page_config(page_title="嬰幼兒護理與發展評估系統", page_icon="👶", layout="centered")
 
 st.title("👶 嬰幼兒照護與發展評估系統")
@@ -28,7 +32,7 @@ st.caption("醫護級到府照護專用 ｜ 整合國健署生長曲線與居托
 tab1, tab2 = st.tabs(["📈 生長百分位試算", "📋 居托發展檢核表"])
 
 # ==========================================
-# WHO / 國健署 0-24 月齡 官方擬合參考數據
+# WHO / 國健署 0-24 月齡 官方參考數據
 # ==========================================
 MONTHS_REF = np.array([0, 1, 2, 3, 4, 5, 6, 8, 10, 12, 15, 18, 21, 24])
 
@@ -58,24 +62,20 @@ def plot_official_growth_chart(title, x_age, y_val, ylabel, ref_3, ref_50, ref_9
 
     fig, ax = plt.subplots(figsize=(7, 4.5), dpi=120)
     
-    # 畫出平滑百分位曲線
     ax.plot(x_mesh, p97, color='#E74C3C', linewidth=1.5, linestyle='-', label='97%')
     ax.plot(x_mesh, p85, color='#E67E22', linewidth=1.2, linestyle='--', label='85%')
     ax.plot(x_mesh, p50, color='#2ECC71', linewidth=2.0, linestyle='-', label='50%')
     ax.plot(x_mesh, p15, color='#E67E22', linewidth=1.2, linestyle='--', label='15%')
     ax.plot(x_mesh, p3,  color='#E74C3C', linewidth=1.5, linestyle='-', label='3%')
     
-    # 背景色區塊
     ax.fill_between(x_mesh, p3, p97, color='#E8F8F5', alpha=0.5)
     
-    # 右側百分位文字
     ax.text(24.2, p97[-1], '97%', verticalalignment='center', fontsize=9, color='#E74C3C', fontweight='bold')
     ax.text(24.2, p85[-1], '85%', verticalalignment='center', fontsize=9, color='#E67E22')
     ax.text(24.2, p50[-1], '50%', verticalalignment='center', fontsize=9, color='#2ECC71', fontweight='bold')
     ax.text(24.2, p15[-1], '15%', verticalalignment='center', fontsize=9, color='#E67E22')
     ax.text(24.2, p3[-1],  '3%',  verticalalignment='center', fontsize=9, color='#E74C3C', fontweight='bold')
 
-    # 標註寶寶當前測量落點
     ax.scatter([x_age], [y_val], color='red', s=120, zorder=5, edgecolor='black', linewidth=1.5, label='寶寶落點')
     ax.annotate(f' 寶寶: ({x_age}個月, {y_val})', (x_age, y_val), textcoords="offset points", xytext=(8,10),
                 ha='left', fontweight='bold', color='red', fontproperties=font_prop,
@@ -150,7 +150,7 @@ with tab1:
         st.pyplot(fig_head)
 
 # ==========================================
-# TAB 2: 居托官方發展檢核表 (全階段)
+# TAB 2: 居托官方發展檢核表 (全階段 + PDF 下載)
 # ==========================================
 with tab2:
     st.header("兒童發展里程碑檢核")
@@ -243,10 +243,68 @@ with tab2:
         total_fail = sum(1 for q_id, info in user_answers.items() if info["ans"] == info["abnormal"])
         
         st.subheader("🎯 發展評估結果")
+        
+        result_text = ""
         if star_fail >= 1 or total_fail >= 2:
-            st.error("🔴 **評估結果：建議諮詢小兒科醫師（未達標準）**")
+            result_text = "🔴 建議諮詢小兒科醫師（未達標準）"
+            st.error(f"**{result_text}**")
+            st.write(f"（檢測發現：有 {star_fail} 項關鍵警訊指標需注意，總計 {total_fail} 項未達標準）")
         elif total_fail == 1:
-            st.warning("🟡 **評估結果：建議居家引導並於 2~4 週後複評（持續觀察）**")
+            result_text = "🟡 建議居家引導並於 2~4 週後複評（持續觀察）"
+            st.warning(f"**{result_text}**")
         else:
-            st.success("🟢 **評估結果：發展非常符合進度（完全通過）**")
+            result_text = "🟢 發展非常符合進度（完全通過）"
+            st.success(f"**{result_text}**")
             st.balloons()
+            
+        st.markdown("---")
+        st.subheader("📄 下載專屬評估報告")
+        st.write("您可以將本次計算與檢核的結果下載成 PDF 簡報檔，保存紀錄或提供給小兒科醫師參考：")
+        
+        # 動態生成 PDF 的函式
+        def create_pdf():
+            buffer = io.BytesIO()
+            doc = SimpleDocTemplate(buffer, pagesize=letter)
+            elements = []
+            
+            styles = getSampleStyleSheet()
+            title_style = ParagraphStyle(name='TitleStyle', fontSize=18, leading=22, alignment=1)
+            normal_style = ParagraphStyle(name='NormalStyle', fontSize=12, leading=16)
+            
+            # PDF 內容構造
+            elements.append(Paragraph("<b>嬰幼兒照護與發展評估報告書</b>", title_style))
+            elements.append(Spacer(1, 15))
+            
+            today_str = datetime.date.today().strftime("%Y-%m-%d")
+            data = [
+                ["評估日期", today_str, "寶寶月齡", f"{months} 個月"],
+                ["寶寶性別", gender, "評估階段", stage],
+                ["身高", f"{height} cm", "體重", f"{weight} kg"],
+                ["頭圍", f"{head} cm", "發展檢核結果", result_text]
+            ]
+            
+            t = Table(data, colWidths=[100, 150, 100, 150])
+            t.setStyle(TableStyle([
+                ('BACKGROUND', (0,0), (-1,0), colors.lightgrey),
+                ('GRID', (0,0), (-1,-1), 1, colors.black),
+                ('ALIGN', (0,0), (-1,-1), 'CENTER'),
+                ('FONTSIZE', (0,0), (-1,-1), 10),
+            ]))
+            elements.append(t)
+            elements.append(Spacer(1, 20))
+            
+            elements.append(Paragraph("<b>護理師專業衛教建議：</b>", normal_style))
+            elements.append(Spacer(1, 5))
+            elements.append(Paragraph("1. 請持續觀察寶寶各項肢體動作與語言反應進展。<br/>2. 每次測量生長數據建議維持紀錄，觀察長期的生長趨勢線。<br/>3. 若發現關鍵警訊指標未通過，建議攜帶本報告諮詢專業兒童發展小兒科醫師。", normal_style))
+            
+            doc.build(elements)
+            buffer.seek(0)
+            return buffer
+
+        pdf_data = create_pdf()
+        st.download_button(
+            label="📥 點擊下載 PDF 診斷報告",
+            data=pdf_data,
+            file_name=f"寶寶發展評估報告_{datetime.date.today()}.pdf",
+            mime="application/pdf"
+        )
