@@ -14,9 +14,9 @@ from reportlab.pdfbase import pdfmetrics
 from reportlab.pdfbase.ttfonts import TTFont
 
 # ---------------------------------------------------------
-# 直接載入專案資料夾內的 NotoSansTC-Regular.ttf 字型
+# 讀取您上傳的字型檔 (NotoSansTC-VariableFont_wght.ttf)
 # ---------------------------------------------------------
-font_filename = "NotoSansTC-Regular.ttf"
+font_filename = "NotoSansTC-VariableFont_wght.ttf"
 
 if os.path.exists(font_filename):
     # 載入 Matplotlib 字型
@@ -91,7 +91,7 @@ def plot_official_growth_chart(title_text, x_age, y_val, ylabel_text, ref_3, ref
                     ha='left', fontweight='bold', color='#D81B60', fontproperties=font_prop,
                     bbox=dict(boxstyle="round,pad=0.3", fc="#FFF9C4", ec="#FF4081", lw=1, alpha=0.9))
         ax.set_title(title_text, fontsize=13, fontweight='bold', pad=10, fontproperties=font_prop)
-        ax.set_xlabel('月齡 (個月 / Months)', fontsize=10, fontproperties=font_prop)
+        ax.set_xlabel('月齡 (個月)', fontsize=10, fontproperties=font_prop)
         ax.set_ylabel(ylabel_text, fontsize=10, fontproperties=font_prop)
     else:
         ax.annotate(f' 寶寶: ({x_age}M, {y_val})', (x_age, y_val), textcoords="offset points", xytext=(8,10),
@@ -278,7 +278,6 @@ with tab2:
         st.subheader("📄 下載寶寶成長紀念卡")
         st.write("您可以將本次測量與檢核結果下載成溫馨卡片保存：")
         
-        # 繪製馬卡龍溫馨風格 PDF 成長卡片
         def create_warm_pdf():
             buffer = io.BytesIO()
             doc = SimpleDocTemplate(buffer, pagesize=letter, leftMargin=36, rightMargin=36, topMargin=36, bottomMargin=36)
