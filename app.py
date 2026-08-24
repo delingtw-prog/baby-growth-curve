@@ -3,6 +3,7 @@ import datetime
 import numpy as np
 import matplotlib.pyplot as plt
 import matplotlib.font_manager as fm
+import urllib.request
 import os
 import io
 
@@ -10,12 +11,35 @@ from reportlab.lib.pagesizes import letter
 from reportlab.platypus import SimpleDocTemplate, Paragraph, Spacer, Table, TableStyle
 from reportlab.lib.styles import getSampleStyleSheet, ParagraphStyle
 from reportlab.lib import colors
+from reportlab.pdfbase import pdfmetrics
+from reportlab.pdfbase.ttfonts import TTFont
 
 # ---------------------------------------------------------
-# 中文字型設定：支援通用中文字型
+# 自動下載並設定繁體中文字型 (Google Noto Sans TC)
 # ---------------------------------------------------------
-plt.rcParams['font.sans-serif'] = ['DejaVu Sans', 'Liberation Sans', 'Arial']
-plt.rcParams['axes.unicode_minus'] = False
+@st.cache_resource
+def load_fonts():
+    font_path = "NotoSansTC-Regular.ttf"
+    if not os.path.exists(font_path):
+        url = "https://github.com/google/fonts/raw/main/ofl/notosanstc/NotoSansTC-Regular.ttf"
+        try:
+            urllib.request.urlretrieve(url, font_path)
+        except Exception:
+            pass
+            
+    if os.path.exists(font_path):
+        # 註冊 Matplotlib 字型
+        fm.fontManager.addfont(font_path)
+        font_prop = fm.FontProperties(fname=font_path)
+        plt.rcParams['font.sans-serif'] = [font_prop.get_name(), 'DejaVu Sans']
+        plt.rcParams['axes.unicode_minus'] = False
+        
+        # 註冊 ReportLab PDF 字型
+        pdfmetrics.registerFont(TTFont('NotoSansTC', font_path))
+        return font_prop, 'NotoSansTC'
+    return None, None
+
+font_prop, pdf_font = load_fonts()
 
 st.set_page_config(page_title="嬰幼兒護理與發展評估系統", page_icon="👶", layout="centered")
 
@@ -55,32 +79,44 @@ def plot_official_growth_chart(title_text, x_age, y_val, ylabel_text, ref_3, ref
 
     fig, ax = plt.subplots(figsize=(7, 4.5), dpi=120)
     
-    ax.plot(x_mesh, p97, color='#E74C3C', linewidth=1.5, linestyle='-', label='97%')
-    ax.plot(x_mesh, p85, color='#E67E22', linewidth=1.2, linestyle='--', label='85%')
-    ax.plot(x_mesh, p50, color='#2ECC71', linewidth=2.0, linestyle='-', label='50%')
-    ax.plot(x_mesh, p15, color='#E67E22', linewidth=1.2, linestyle='--', label='15%')
-    ax.plot(x_mesh, p3,  color='#E74C3C', linewidth=1.5, linestyle='-', label='3%')
+    ax.plot(x_mesh, p97, color='#FF8A8A', linewidth=1.5, linestyle='-', label='97%')
+    ax.plot(x_mesh, p85, color='#FFC107', linewidth=1.2, linestyle='--', label='85%')
+    ax.plot(x_mesh, p50, color='#4CAF50', linewidth=2.0, linestyle='-', label='50%')
+    ax.plot(x_mesh, p15, color='#FFC107', linewidth=1.2, linestyle='--', label='15%')
+    ax.plot(x_mesh, p3,  color='#FF8A8A', linewidth=1.5, linestyle='-', label='3%')
     
-    ax.fill_between(x_mesh, p3, p97, color='#E8F8F5', alpha=0.5)
+    ax.fill_between(x_mesh, p3, p97, color='#E8F5E9', alpha=0.6)
     
-    ax.text(24.2, p97[-1], '97%', verticalalignment='center', fontsize=9, color='#E74C3C', fontweight='bold')
-    ax.text(24.2, p85[-1], '85%', verticalalignment='center', fontsize=9, color='#E67E22')
-    ax.text(24.2, p50[-1], '50%', verticalalignment='center', fontsize=9, color='#2ECC71', fontweight='bold')
-    ax.text(24.2, p15[-1], '15%', verticalalignment='center', fontsize=9, color='#E67E22')
-    ax.text(24.2, p3[-1],  '3%',  verticalalignment='center', fontsize=9, color='#E74C3C', fontweight='bold')
+    ax.text(24.2, p97[-1], '97%', verticalalignment='center', fontsize=9, color='#FF8A8A', fontweight='bold')
+    ax.text(24.2, p85[-1], '85%', verticalalignment='center', fontsize=9, color='#FFC107')
+    ax.text(24.2, p50[-1], '50%', verticalalignment='center', fontsize=9, color='#4CAF50', fontweight='bold')
+    ax.text(24.2, p15[-1], '15%', verticalalignment='center', fontsize=9, color='#FFC107')
+    ax.text(24.2, p3[-1],  '3%',  verticalalignment='center', fontsize=9, color='#FF8A8A', fontweight='bold')
 
-    ax.scatter([x_age], [y_val], color='red', s=120, zorder=5, edgecolor='black', linewidth=1.5, label='Baby Point')
+    ax.scatter([x_age], [y_val], color='#FF4081', s=120, zorder=5, edgecolor='black', linewidth=1.5, label='寶寶落點')
     
-    ax.annotate(f' Baby: ({x_age}M, {y_val})', (x_age, y_val), textcoords="offset points", xytext=(8,10),
-                ha='left', fontweight='bold', color='red',
-                bbox=dict(boxstyle="round,pad=0.3", fc="yellow", ec="red", lw=1, alpha=0.8))
-    ax.set_title(title_text, fontsize=13, fontweight='bold', pad=10)
-    ax.set_xlabel('Age (Months)', fontsize=10)
-    ax.set_ylabel(ylabel_text, fontsize=10)
+    if font_prop:
+        ax.annotate(f' 寶寶: ({x_age}個月, {y_val})', (x_age, y_val), textcoords="offset points", xytext=(8,10),
+                    ha='left', fontweight='bold', color='#D81B60', fontproperties=font_prop,
+                    bbox=dict(boxstyle="round,pad=0.3", fc="#FFF9C4", ec="#FF4081", lw=1, alpha=0.9))
+        ax.set_title(title_text, fontsize=13, fontweight='bold', pad=10, fontproperties=font_prop)
+        ax.set_xlabel('月齡 (個月)', fontsize=10, fontproperties=font_prop)
+        ax.set_ylabel(ylabel_text, fontsize=10, fontproperties=font_prop)
+    else:
+        ax.annotate(f' 寶寶: ({x_age}M, {y_val})', (x_age, y_val), textcoords="offset points", xytext=(8,10),
+                    ha='left', fontweight='bold', color='#D81B60',
+                    bbox=dict(boxstyle="round,pad=0.3", fc="#FFF9C4", ec="#FF4081", lw=1, alpha=0.9))
+        ax.set_title(title_text, fontsize=13, fontweight='bold', pad=10)
+        ax.set_xlabel('月齡 (個月)', fontsize=10)
+        ax.set_ylabel(ylabel_text, fontsize=10)
 
     ax.set_xlim(0, 25)
-    ax.grid(True, linestyle='--', alpha=0.5)
-    ax.legend(loc='upper left', fontsize=9)
+    ax.grid(True, linestyle=':', alpha=0.6)
+    
+    leg = ax.legend(loc='upper left', fontsize=9)
+    if font_prop:
+        for text in leg.get_texts():
+            text.set_fontproperties(font_prop)
     
     plt.tight_layout()
     return fig
@@ -130,13 +166,13 @@ with tab1:
         
         st.subheader("📈 兒童健康手冊生長百分位曲線對照圖")
         
-        fig_h = plot_official_growth_chart("Height Growth Chart (0-24M)", months, height, "Height (cm)", BOY_HEIGHT_3, BOY_HEIGHT_50, BOY_HEIGHT_97)
+        fig_h = plot_official_growth_chart("身高清確落點對照圖 (0-24個月)", months, height, "身高 (cm)", BOY_HEIGHT_3, BOY_HEIGHT_50, BOY_HEIGHT_97)
         st.pyplot(fig_h)
         
-        fig_w = plot_official_growth_chart("Weight Growth Chart (0-24M)", months, weight, "Weight (kg)", BOY_WEIGHT_3, BOY_WEIGHT_50, BOY_WEIGHT_97)
+        fig_w = plot_official_growth_chart("體重精確落點對照圖 (0-24個月)", months, weight, "體重 (kg)", BOY_WEIGHT_3, BOY_WEIGHT_50, BOY_WEIGHT_97)
         st.pyplot(fig_w)
         
-        fig_head = plot_official_growth_chart("Head Circumference Chart (0-24M)", months, head, "Head (cm)", BOY_HEAD_3, BOY_HEAD_50, BOY_HEAD_97)
+        fig_head = plot_official_growth_chart("頭圍精確落點對照圖 (0-24個月)", months, head, "頭圍 (cm)", BOY_HEAD_3, BOY_HEAD_50, BOY_HEAD_97)
         st.pyplot(fig_head)
 
 # ==========================================
@@ -236,63 +272,105 @@ with tab2:
         
         result_text = ""
         if star_fail >= 1 or total_fail >= 2:
-            result_text = "🔴 建議諮詢小兒科醫師（未達標準）"
-            st.error(f"**{result_text}**")
+            result_text = "建議諮詢小兒科醫師"
+            st.error(f"**🔴 {result_text}（未達標準）**")
             st.write(f"（檢測發現：有 {star_fail} 項關鍵警訊指標需注意，總計 {total_fail} 項未達標準）")
         elif total_fail == 1:
-            result_text = "🟡 建議居家引導並於 2~4 週後複評（持續觀察）"
-            st.warning(f"**{result_text}**")
+            result_text = "持續觀察並於 2-4 週後複評"
+            st.warning(f"**🟡 {result_text}**")
         else:
-            result_text = "🟢 發展非常符合進度（完全通過）"
-            st.success(f"**{result_text}**")
+            result_text = "發展非常符合進度（完全通過）"
+            st.success(f"**🟢 {result_text}**")
             st.balloons()
             
         st.markdown("---")
-        st.subheader("📄 下載專屬評估報告")
-        st.write("您可以將本次計算與檢核的結果下載成 PDF 簡報檔：")
+        st.subheader("📄 下載寶寶成長紀念卡")
+        st.write("您可以將本次測量與檢核結果下載成溫馨卡片保存或提供給家長：")
         
-        def create_pdf():
+        # 繪製馬卡龍溫馨風格 PDF 成長卡片
+        def create_warm_pdf():
             buffer = io.BytesIO()
-            doc = SimpleDocTemplate(buffer, pagesize=letter)
+            doc = SimpleDocTemplate(buffer, pagesize=letter, leftMargin=36, rightMargin=36, topMargin=36, bottomMargin=36)
             elements = []
             
-            styles = getSampleStyleSheet()
-            title_style = ParagraphStyle(name='TitleStyle', fontSize=18, leading=22, alignment=1)
-            normal_style = ParagraphStyle(name='NormalStyle', fontSize=12, leading=16)
+            f_name = pdf_font if pdf_font else 'Helvetica'
             
-            elements.append(Paragraph("<b>Baby Care & Growth Evaluation Report</b>", title_style))
+            title_style = ParagraphStyle(
+                name='WarmTitle',
+                fontName=f_name,
+                fontSize=20,
+                leading=24,
+                textColor=colors.HexColor('#D81B60'),
+                alignment=1
+            )
+            
+            sub_style = ParagraphStyle(
+                name='WarmSub',
+                fontName=f_name,
+                fontSize=11,
+                leading=16,
+                textColor=colors.HexColor('#5D4037'),
+                alignment=1
+            )
+            
+            body_style = ParagraphStyle(
+                name='WarmBody',
+                fontName=f_name,
+                fontSize=10,
+                leading=15,
+                textColor=colors.HexColor('#3E2723')
+            )
+            
+            elements.append(Paragraph("<b>🌸 寶寶成長與發展小卡 🌸</b>", title_style))
+            elements.append(Spacer(1, 6))
+            elements.append(Paragraph("專屬居家照護紀錄 ｜ 陪伴寶寶快樂健康成長", sub_style))
             elements.append(Spacer(1, 15))
             
-            today_str = datetime.date.today().strftime("%Y-%m-%d")
+            today_str = datetime.date.today().strftime("%Y年%m月%d日")
+            
             data = [
-                ["Date", today_str, "Age", f"{months} Months"],
-                ["Gender", gender, "Stage", stage],
-                ["Height", f"{height} cm", "Weight", f"{weight} kg"],
-                ["Head", f"{head} cm", "Result", "Passed"]
+                [Paragraph("<b>記錄日期</b>", body_style), Paragraph(today_str, body_style), Paragraph("<b>寶寶月齡</b>", body_style), Paragraph(f"{months} 個月", body_style)],
+                [Paragraph("<b>寶寶性別</b>", body_style), Paragraph(gender, body_style), Paragraph("<b>檢核階段</b>", body_style), Paragraph(stage, body_style)],
+                [Paragraph("<b>身高落點</b>", body_style), Paragraph(f"{height} cm", body_style), Paragraph("<b>體重落點</b>", body_style), Paragraph(f"{weight} kg", body_style)],
+                [Paragraph("<b>頭圍落點</b>", body_style), Paragraph(f"{head} cm", body_style), Paragraph("<b>評估結果</b>", body_style), Paragraph(result_text, body_style)],
             ]
             
-            t = Table(data, colWidths=[80, 160, 80, 180])
+            t = Table(data, colWidths=[80, 170, 80, 190])
             t.setStyle(TableStyle([
-                ('BACKGROUND', (0,0), (-1,0), colors.lightgrey),
-                ('GRID', (0,0), (-1,-1), 1, colors.black),
+                ('BACKGROUND', (0,0), (-1,-1), colors.HexColor('#FFFDE7')),
+                ('GRID', (0,0), (-1,-1), 1, colors.HexColor('#FFE082')),
                 ('ALIGN', (0,0), (-1,-1), 'CENTER'),
-                ('FONTSIZE', (0,0), (-1,-1), 10),
+                ('VALIGN', (0,0), (-1,-1), 'MIDDLE'),
+                ('PADDING', (0,0), (-1,-1), 8),
             ]))
             elements.append(t)
             elements.append(Spacer(1, 20))
             
-            elements.append(Paragraph("<b>Caregiver Notes:</b>", normal_style))
-            elements.append(Spacer(1, 5))
-            elements.append(Paragraph("1. Keep monitoring baby's growth trend.<br/>2. If warning signs fail, consult a pediatrician.", normal_style))
+            elements.append(Paragraph("<b>💌 護理師的溫馨小叮嚀：</b>", ParagraphStyle('Title2', fontName=f_name, fontSize=12, textColor=colors.HexColor('#880E4F'))))
+            elements.append(Spacer(1, 6))
             
+            advice_text = """
+            1. 每個寶寶都有獨立發展的步調，建議持續觀察並維持規律的作息與營養。<br/>
+            2. 定期記錄身高、體重與頭圍，只要曲線穩定沿著百分位區間成長就是好棒棒！<br/>
+            3. 若檢核發現警訊指標未通過，請保持平常心，下一次兒童健檢時可帶本卡片諮詢小兒科醫師。
+            """
+            
+            advice_table = Table([[Paragraph(advice_text, body_style)]], colWidths=[520])
+            advice_table.setStyle(TableStyle([
+                ('BACKGROUND', (0,0), (-1,-1), colors.HexColor('#F3E5F5')),
+                ('BOX', (0,0), (-1,-1), 1, colors.HexColor('#CE93D8')),
+                ('PADDING', (0,0), (-1,-1), 10),
+            ]))
+            
+            elements.append(advice_table)
             doc.build(elements)
             buffer.seek(0)
             return buffer
 
-        pdf_data = create_pdf()
+        pdf_data = create_warm_pdf()
         st.download_button(
-            label="📥 點擊下載 PDF 診斷報告",
+            label="📥 下載寶寶成長紀念卡 (PDF)",
             data=pdf_data,
-            file_name=f"Baby_Growth_Report_{datetime.date.today()}.pdf",
+            file_name=f"寶寶成長紀念卡_{datetime.date.today()}.pdf",
             mime="application/pdf"
         )
