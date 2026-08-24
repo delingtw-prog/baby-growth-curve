@@ -3,6 +3,7 @@ import datetime
 import numpy as np
 import matplotlib.pyplot as plt
 import matplotlib.font_manager as fm
+import urllib.request
 import os
 import io
 
@@ -12,12 +13,19 @@ from reportlab.lib.styles import getSampleStyleSheet, ParagraphStyle
 from reportlab.lib import colors
 
 # ---------------------------------------------------------
-# 中文字型設定
+# 強效解決 Matplotlib 中文亂碼（直接下載思源黑體字型檔）
 # ---------------------------------------------------------
 @st.cache_resource
 def get_chinese_font():
-    os.system("apt-get update -qq && apt-get install -y fonts-wqy-zenhei > /dev/null 2>&1")
-    font_path = "/usr/share/fonts/truetype/wqy/wqy-zenhei.ttc"
+    font_path = "NotoSansTC-Regular.otf"
+    if not os.path.exists(font_path):
+        # 從 GitHub 下載思源黑體 Noto Sans TC
+        url = "https://raw.githubusercontent.com/google/fonts/main/ofl/notosanstc/NotoSansTC-Regular.otf"
+        try:
+            urllib.request.urlretrieve(url, font_path)
+        except Exception as e:
+            pass
+            
     if os.path.exists(font_path):
         return fm.FontProperties(fname=font_path)
     return None
@@ -77,13 +85,22 @@ def plot_official_growth_chart(title, x_age, y_val, ylabel, ref_3, ref_50, ref_9
     ax.text(24.2, p3[-1],  '3%',  verticalalignment='center', fontsize=9, color='#E74C3C', fontweight='bold')
 
     ax.scatter([x_age], [y_val], color='red', s=120, zorder=5, edgecolor='black', linewidth=1.5, label='寶寶落點')
-    ax.annotate(f' 寶寶: ({x_age}個月, {y_val})', (x_age, y_val), textcoords="offset points", xytext=(8,10),
-                ha='left', fontweight='bold', color='red', fontproperties=font_prop,
-                bbox=dict(boxstyle="round,pad=0.3", fc="yellow", ec="red", lw=1, alpha=0.8))
+    
+    if font_prop:
+        ax.annotate(f' 寶寶: ({x_age}個月, {y_val})', (x_age, y_val), textcoords="offset points", xytext=(8,10),
+                    ha='left', fontweight='bold', color='red', fontproperties=font_prop,
+                    bbox=dict(boxstyle="round,pad=0.3", fc="yellow", ec="red", lw=1, alpha=0.8))
+        ax.set_title(title, fontsize=13, fontweight='bold', pad=10, fontproperties=font_prop)
+        ax.set_xlabel('月齡 (個月 / Months)', fontsize=10, fontproperties=font_prop)
+        ax.set_ylabel(ylabel, fontsize=10, fontproperties=font_prop)
+    else:
+        ax.annotate(f' Baby: ({x_age}M, {y_val})', (x_age, y_val), textcoords="offset points", xytext=(8,10),
+                    ha='left', fontweight='bold', color='red',
+                    bbox=dict(boxstyle="round,pad=0.3", fc="yellow", ec="red", lw=1, alpha=0.8))
+        ax.set_title(title, fontsize=13, fontweight='bold', pad=10)
+        ax.set_xlabel('Age (Months)', fontsize=10)
+        ax.set_ylabel(ylabel, fontsize=10)
 
-    ax.set_title(title, fontsize=13, fontweight='bold', pad=10, fontproperties=font_prop)
-    ax.set_xlabel('月齡 (個月 / Months)', fontsize=10, fontproperties=font_prop)
-    ax.set_ylabel(ylabel, fontsize=10, fontproperties=font_prop)
     ax.set_xlim(0, 25)
     ax.grid(True, linestyle='--', alpha=0.5)
     
@@ -150,7 +167,7 @@ with tab1:
         st.pyplot(fig_head)
 
 # ==========================================
-# TAB 2: 居托官方發展檢核表 (全階段 + PDF 下載)
+# TAB 2: 居托官方發展檢核表
 # ==========================================
 with tab2:
     st.header("兒童發展里程碑檢核")
@@ -259,9 +276,8 @@ with tab2:
             
         st.markdown("---")
         st.subheader("📄 下載專屬評估報告")
-        st.write("您可以將本次計算與檢核的結果下載成 PDF 簡報檔，保存紀錄或提供給小兒科醫師參考：")
+        st.write("您可以將本次計算與檢核的結果下載成 PDF 簡報檔：")
         
-        # 動態生成 PDF 的函式
         def create_pdf():
             buffer = io.BytesIO()
             doc = SimpleDocTemplate(buffer, pagesize=letter)
@@ -271,19 +287,18 @@ with tab2:
             title_style = ParagraphStyle(name='TitleStyle', fontSize=18, leading=22, alignment=1)
             normal_style = ParagraphStyle(name='NormalStyle', fontSize=12, leading=16)
             
-            # PDF 內容構造
-            elements.append(Paragraph("<b>嬰幼兒照護與發展評估報告書</b>", title_style))
+            elements.append(Paragraph("<b>Baby Care & Growth Evaluation Report</b>", title_style))
             elements.append(Spacer(1, 15))
             
             today_str = datetime.date.today().strftime("%Y-%m-%d")
             data = [
-                ["評估日期", today_str, "寶寶月齡", f"{months} 個月"],
-                ["寶寶性別", gender, "評估階段", stage],
-                ["身高", f"{height} cm", "體重", f"{weight} kg"],
-                ["頭圍", f"{head} cm", "發展檢核結果", result_text]
+                ["Date", today_str, "Age", f"{months} Months"],
+                ["Gender", gender, "Stage", stage],
+                ["Height", f"{height} cm", "Weight", f"{weight} kg"],
+                ["Head", f"{head} cm", "Result", result_text]
             ]
             
-            t = Table(data, colWidths=[100, 150, 100, 150])
+            t = Table(data, colWidths=[80, 160, 80, 180])
             t.setStyle(TableStyle([
                 ('BACKGROUND', (0,0), (-1,0), colors.lightgrey),
                 ('GRID', (0,0), (-1,-1), 1, colors.black),
@@ -293,9 +308,9 @@ with tab2:
             elements.append(t)
             elements.append(Spacer(1, 20))
             
-            elements.append(Paragraph("<b>護理師專業衛教建議：</b>", normal_style))
+            elements.append(Paragraph("<b>Caregiver Notes:</b>", normal_style))
             elements.append(Spacer(1, 5))
-            elements.append(Paragraph("1. 請持續觀察寶寶各項肢體動作與語言反應進展。<br/>2. 每次測量生長數據建議維持紀錄，觀察長期的生長趨勢線。<br/>3. 若發現關鍵警訊指標未通過，建議攜帶本報告諮詢專業兒童發展小兒科醫師。", normal_style))
+            elements.append(Paragraph("1. Keep monitoring baby's growth trend.<br/>2. If warning signs fail, consult a pediatrician.", normal_style))
             
             doc.build(elements)
             buffer.seek(0)
@@ -305,6 +320,6 @@ with tab2:
         st.download_button(
             label="📥 點擊下載 PDF 診斷報告",
             data=pdf_data,
-            file_name=f"寶寶發展評估報告_{datetime.date.today()}.pdf",
+            file_name=f"Baby_Growth_Report_{datetime.date.today()}.pdf",
             mime="application/pdf"
         )
