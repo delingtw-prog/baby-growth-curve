@@ -3,7 +3,6 @@ import datetime
 import numpy as np
 import matplotlib.pyplot as plt
 import matplotlib.font_manager as fm
-import urllib.request
 import os
 import io
 
@@ -15,31 +14,27 @@ from reportlab.pdfbase import pdfmetrics
 from reportlab.pdfbase.ttfonts import TTFont
 
 # ---------------------------------------------------------
-# 自動下載並設定繁體中文字型 (Google Noto Sans TC)
+# 自動安裝並設定 Linux 系統中文字型 (文泉驛正黑體)
 # ---------------------------------------------------------
 @st.cache_resource
-def load_fonts():
-    font_path = "NotoSansTC-Regular.ttf"
-    if not os.path.exists(font_path):
-        url = "https://github.com/google/fonts/raw/main/ofl/notosanstc/NotoSansTC-Regular.ttf"
-        try:
-            urllib.request.urlretrieve(url, font_path)
-        except Exception:
-            pass
-            
+def setup_system_chinese_font():
+    # 安裝系統字型檔
+    os.system("apt-get update -qq && apt-get install -y fonts-wqy-zenhei > /dev/null 2>&1")
+    font_path = "/usr/share/fonts/truetype/wqy/wqy-zenhei.ttc"
+    
     if os.path.exists(font_path):
         # 註冊 Matplotlib 字型
         fm.fontManager.addfont(font_path)
-        font_prop = fm.FontProperties(fname=font_path)
-        plt.rcParams['font.sans-serif'] = [font_prop.get_name(), 'DejaVu Sans']
+        plt.rcParams['font.sans-serif'] = ['WenQuanYi Zen Hei', 'DejaVu Sans']
         plt.rcParams['axes.unicode_minus'] = False
+        font_prop = fm.FontProperties(fname=font_path)
         
         # 註冊 ReportLab PDF 字型
-        pdfmetrics.registerFont(TTFont('NotoSansTC', font_path))
-        return font_prop, 'NotoSansTC'
+        pdfmetrics.registerFont(TTFont('ZenHei', font_path))
+        return font_prop, 'ZenHei'
     return None, None
 
-font_prop, pdf_font = load_fonts()
+font_prop, pdf_font_name = setup_system_chinese_font()
 
 st.set_page_config(page_title="嬰幼兒護理與發展評估系統", page_icon="👶", layout="centered")
 
@@ -95,20 +90,13 @@ def plot_official_growth_chart(title_text, x_age, y_val, ylabel_text, ref_3, ref
 
     ax.scatter([x_age], [y_val], color='#FF4081', s=120, zorder=5, edgecolor='black', linewidth=1.5, label='寶寶落點')
     
-    if font_prop:
-        ax.annotate(f' 寶寶: ({x_age}個月, {y_val})', (x_age, y_val), textcoords="offset points", xytext=(8,10),
-                    ha='left', fontweight='bold', color='#D81B60', fontproperties=font_prop,
-                    bbox=dict(boxstyle="round,pad=0.3", fc="#FFF9C4", ec="#FF4081", lw=1, alpha=0.9))
-        ax.set_title(title_text, fontsize=13, fontweight='bold', pad=10, fontproperties=font_prop)
-        ax.set_xlabel('月齡 (個月)', fontsize=10, fontproperties=font_prop)
-        ax.set_ylabel(ylabel_text, fontsize=10, fontproperties=font_prop)
-    else:
-        ax.annotate(f' 寶寶: ({x_age}M, {y_val})', (x_age, y_val), textcoords="offset points", xytext=(8,10),
-                    ha='left', fontweight='bold', color='#D81B60',
-                    bbox=dict(boxstyle="round,pad=0.3", fc="#FFF9C4", ec="#FF4081", lw=1, alpha=0.9))
-        ax.set_title(title_text, fontsize=13, fontweight='bold', pad=10)
-        ax.set_xlabel('月齡 (個月)', fontsize=10)
-        ax.set_ylabel(ylabel_text, fontsize=10)
+    ax.annotate(f' 寶寶: ({x_age}個月, {y_val})', (x_age, y_val), textcoords="offset points", xytext=(8,10),
+                ha='left', fontweight='bold', color='#D81B60', fontproperties=font_prop,
+                bbox=dict(boxstyle="round,pad=0.3", fc="#FFF9C4", ec="#FF4081", lw=1, alpha=0.9))
+    
+    ax.set_title(title_text, fontsize=13, fontweight='bold', pad=10, fontproperties=font_prop)
+    ax.set_xlabel('月齡 (個月 / Months)', fontsize=10, fontproperties=font_prop)
+    ax.set_ylabel(ylabel_text, fontsize=10, fontproperties=font_prop)
 
     ax.set_xlim(0, 25)
     ax.grid(True, linestyle=':', alpha=0.6)
@@ -285,15 +273,14 @@ with tab2:
             
         st.markdown("---")
         st.subheader("📄 下載寶寶成長紀念卡")
-        st.write("您可以將本次測量與檢核結果下載成溫馨卡片保存或提供給家長：")
+        st.write("您可以將本次測量與檢核結果下載成溫馨卡片保存：")
         
-        # 繪製馬卡龍溫馨風格 PDF 成長卡片
         def create_warm_pdf():
             buffer = io.BytesIO()
             doc = SimpleDocTemplate(buffer, pagesize=letter, leftMargin=36, rightMargin=36, topMargin=36, bottomMargin=36)
             elements = []
             
-            f_name = pdf_font if pdf_font else 'Helvetica'
+            f_name = pdf_font_name if pdf_font_name else 'Helvetica'
             
             title_style = ParagraphStyle(
                 name='WarmTitle',
