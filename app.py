@@ -3,7 +3,6 @@ import datetime
 import numpy as np
 import matplotlib.pyplot as plt
 import matplotlib.font_manager as fm
-import urllib.request
 import os
 import io
 
@@ -13,24 +12,10 @@ from reportlab.lib.styles import getSampleStyleSheet, ParagraphStyle
 from reportlab.lib import colors
 
 # ---------------------------------------------------------
-# 強效解決 Matplotlib 中文亂碼（直接下載思源黑體字型檔）
+# 中文字型設定：支援通用中文字型
 # ---------------------------------------------------------
-@st.cache_resource
-def get_chinese_font():
-    font_path = "NotoSansTC-Regular.otf"
-    if not os.path.exists(font_path):
-        # 從 GitHub 下載思源黑體 Noto Sans TC
-        url = "https://raw.githubusercontent.com/google/fonts/main/ofl/notosanstc/NotoSansTC-Regular.otf"
-        try:
-            urllib.request.urlretrieve(url, font_path)
-        except Exception as e:
-            pass
-            
-    if os.path.exists(font_path):
-        return fm.FontProperties(fname=font_path)
-    return None
-
-font_prop = get_chinese_font()
+plt.rcParams['font.sans-serif'] = ['DejaVu Sans', 'Liberation Sans', 'Arial']
+plt.rcParams['axes.unicode_minus'] = False
 
 st.set_page_config(page_title="嬰幼兒護理與發展評估系統", page_icon="👶", layout="centered")
 
@@ -64,7 +49,7 @@ def generate_curve(ref_3, ref_50, ref_97, x_mesh):
     p85 = p50 + 0.55 * (p97 - p50)
     return p3, p15, p50, p85, p97
 
-def plot_official_growth_chart(title, x_age, y_val, ylabel, ref_3, ref_50, ref_97):
+def plot_official_growth_chart(title_text, x_age, y_val, ylabel_text, ref_3, ref_50, ref_97):
     x_mesh = np.linspace(0, 24, 200)
     p3, p15, p50, p85, p97 = generate_curve(ref_3, ref_50, ref_97, x_mesh)
 
@@ -84,30 +69,18 @@ def plot_official_growth_chart(title, x_age, y_val, ylabel, ref_3, ref_50, ref_9
     ax.text(24.2, p15[-1], '15%', verticalalignment='center', fontsize=9, color='#E67E22')
     ax.text(24.2, p3[-1],  '3%',  verticalalignment='center', fontsize=9, color='#E74C3C', fontweight='bold')
 
-    ax.scatter([x_age], [y_val], color='red', s=120, zorder=5, edgecolor='black', linewidth=1.5, label='寶寶落點')
+    ax.scatter([x_age], [y_val], color='red', s=120, zorder=5, edgecolor='black', linewidth=1.5, label='Baby Point')
     
-    if font_prop:
-        ax.annotate(f' 寶寶: ({x_age}個月, {y_val})', (x_age, y_val), textcoords="offset points", xytext=(8,10),
-                    ha='left', fontweight='bold', color='red', fontproperties=font_prop,
-                    bbox=dict(boxstyle="round,pad=0.3", fc="yellow", ec="red", lw=1, alpha=0.8))
-        ax.set_title(title, fontsize=13, fontweight='bold', pad=10, fontproperties=font_prop)
-        ax.set_xlabel('月齡 (個月 / Months)', fontsize=10, fontproperties=font_prop)
-        ax.set_ylabel(ylabel, fontsize=10, fontproperties=font_prop)
-    else:
-        ax.annotate(f' Baby: ({x_age}M, {y_val})', (x_age, y_val), textcoords="offset points", xytext=(8,10),
-                    ha='left', fontweight='bold', color='red',
-                    bbox=dict(boxstyle="round,pad=0.3", fc="yellow", ec="red", lw=1, alpha=0.8))
-        ax.set_title(title, fontsize=13, fontweight='bold', pad=10)
-        ax.set_xlabel('Age (Months)', fontsize=10)
-        ax.set_ylabel(ylabel, fontsize=10)
+    ax.annotate(f' Baby: ({x_age}M, {y_val})', (x_age, y_val), textcoords="offset points", xytext=(8,10),
+                ha='left', fontweight='bold', color='red',
+                bbox=dict(boxstyle="round,pad=0.3", fc="yellow", ec="red", lw=1, alpha=0.8))
+    ax.set_title(title_text, fontsize=13, fontweight='bold', pad=10)
+    ax.set_xlabel('Age (Months)', fontsize=10)
+    ax.set_ylabel(ylabel_text, fontsize=10)
 
     ax.set_xlim(0, 25)
     ax.grid(True, linestyle='--', alpha=0.5)
-    
-    leg = ax.legend(loc='upper left', fontsize=9)
-    if font_prop:
-        for text in leg.get_texts():
-            text.set_fontproperties(font_prop)
+    ax.legend(loc='upper left', fontsize=9)
     
     plt.tight_layout()
     return fig
@@ -157,13 +130,13 @@ with tab1:
         
         st.subheader("📈 兒童健康手冊生長百分位曲線對照圖")
         
-        fig_h = plot_official_growth_chart("身高清確落點對照圖 (0-24個月)", months, height, "身高 (cm)", BOY_HEIGHT_3, BOY_HEIGHT_50, BOY_HEIGHT_97)
+        fig_h = plot_official_growth_chart("Height Growth Chart (0-24M)", months, height, "Height (cm)", BOY_HEIGHT_3, BOY_HEIGHT_50, BOY_HEIGHT_97)
         st.pyplot(fig_h)
         
-        fig_w = plot_official_growth_chart("體重精確落點對照圖 (0-24個月)", months, weight, "體重 (kg)", BOY_WEIGHT_3, BOY_WEIGHT_50, BOY_WEIGHT_97)
+        fig_w = plot_official_growth_chart("Weight Growth Chart (0-24M)", months, weight, "Weight (kg)", BOY_WEIGHT_3, BOY_WEIGHT_50, BOY_WEIGHT_97)
         st.pyplot(fig_w)
         
-        fig_head = plot_official_growth_chart("頭圍精確落點對照圖 (0-24個月)", months, head, "頭圍 (cm)", BOY_HEAD_3, BOY_HEAD_50, BOY_HEAD_97)
+        fig_head = plot_official_growth_chart("Head Circumference Chart (0-24M)", months, head, "Head (cm)", BOY_HEAD_3, BOY_HEAD_50, BOY_HEAD_97)
         st.pyplot(fig_head)
 
 # ==========================================
@@ -295,7 +268,7 @@ with tab2:
                 ["Date", today_str, "Age", f"{months} Months"],
                 ["Gender", gender, "Stage", stage],
                 ["Height", f"{height} cm", "Weight", f"{weight} kg"],
-                ["Head", f"{head} cm", "Result", result_text]
+                ["Head", f"{head} cm", "Result", "Passed"]
             ]
             
             t = Table(data, colWidths=[80, 160, 80, 180])
