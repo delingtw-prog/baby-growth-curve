@@ -3,7 +3,6 @@ import datetime
 import numpy as np
 import matplotlib.pyplot as plt
 import matplotlib.font_manager as fm
-import urllib.request
 import os
 import io
 
@@ -15,37 +14,23 @@ from reportlab.pdfbase import pdfmetrics
 from reportlab.pdfbase.ttfonts import TTFont
 
 # ---------------------------------------------------------
-# 自動下載並設定繁體中文字型檔 (Google Noto Sans TC)
+# 直接載入專案資料夾內的 NotoSansTC-Regular.ttf 字型
 # ---------------------------------------------------------
-@st.cache_resource
-def load_chinese_font():
-    font_filename = "NotoSansTC-Regular.ttf"
-    if not os.path.exists(font_filename) or os.path.getsize(font_filename) < 100000:
-        urls = [
-            "https://github.com/google/fonts/raw/main/ofl/notosanstc/NotoSansTC-Regular.ttf",
-            "https://cdn.jsdelivr.net/gh/google/fonts@main/ofl/notosanstc/NotoSansTC-Regular.ttf"
-        ]
-        for url in urls:
-            try:
-                urllib.request.urlretrieve(url, font_filename)
-                if os.path.exists(font_filename) and os.path.getsize(font_filename) > 100000:
-                    break
-            except Exception:
-                continue
-                
-    if os.path.exists(font_filename) and os.path.getsize(font_filename) > 100000:
-        # 註冊 Matplotlib 字型
-        fm.fontManager.addfont(font_filename)
-        font_prop = fm.FontProperties(fname=font_filename)
-        plt.rcParams['font.sans-serif'] = [font_prop.get_name(), 'DejaVu Sans']
-        plt.rcParams['axes.unicode_minus'] = False
-        
-        # 註冊 ReportLab PDF 字型
-        pdfmetrics.registerFont(TTFont('NotoSansTC', font_filename))
-        return font_prop, 'NotoSansTC'
-    return None, None
+font_filename = "NotoSansTC-Regular.ttf"
 
-font_prop, pdf_font_name = load_chinese_font()
+if os.path.exists(font_filename):
+    # 載入 Matplotlib 字型
+    fm.fontManager.addfont(font_filename)
+    font_prop = fm.FontProperties(fname=font_filename)
+    plt.rcParams['font.sans-serif'] = [font_prop.get_name(), 'DejaVu Sans']
+    plt.rcParams['axes.unicode_minus'] = False
+    
+    # 載入 ReportLab PDF 字型
+    pdfmetrics.registerFont(TTFont('NotoSansTC', font_filename))
+    pdf_font_name = 'NotoSansTC'
+else:
+    font_prop = None
+    pdf_font_name = 'Helvetica'
 
 st.set_page_config(page_title="嬰幼兒護理與發展評估系統", page_icon="👶", layout="centered")
 
@@ -293,13 +278,13 @@ with tab2:
         st.subheader("📄 下載寶寶成長紀念卡")
         st.write("您可以將本次測量與檢核結果下載成溫馨卡片保存：")
         
-        # 繪製馬卡龍溫馨風格 PDF 成長卡片 (ReportLab 原生)
+        # 繪製馬卡龍溫馨風格 PDF 成長卡片
         def create_warm_pdf():
             buffer = io.BytesIO()
             doc = SimpleDocTemplate(buffer, pagesize=letter, leftMargin=36, rightMargin=36, topMargin=36, bottomMargin=36)
             elements = []
             
-            f_name = pdf_font_name if pdf_font_name else 'Helvetica'
+            f_name = pdf_font_name
             
             title_style = ParagraphStyle(
                 name='WarmTitle',
