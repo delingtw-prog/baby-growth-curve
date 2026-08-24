@@ -3,38 +3,41 @@ import datetime
 import numpy as np
 import matplotlib.pyplot as plt
 import matplotlib.font_manager as fm
+import urllib.request
 import os
 import io
-
-from reportlab.lib.pagesizes import letter
-from reportlab.platypus import SimpleDocTemplate, Paragraph, Spacer, Table, TableStyle
-from reportlab.lib.styles import getSampleStyleSheet, ParagraphStyle
-from reportlab.lib import colors
-from reportlab.pdfbase import pdfmetrics
-from reportlab.pdfbase.ttfonts import TTFont
+import base64
+from weasyprint import HTML
 
 # ---------------------------------------------------------
-# 自動安裝並設定 Linux 系統中文字型 (文泉驛正黑體)
+# 100% 確保繁體中文字型 (專案內本地下載與載入)
 # ---------------------------------------------------------
 @st.cache_resource
-def setup_system_chinese_font():
-    # 安裝系統字型檔
-    os.system("apt-get update -qq && apt-get install -y fonts-wqy-zenhei > /dev/null 2>&1")
-    font_path = "/usr/share/fonts/truetype/wqy/wqy-zenhei.ttc"
-    
-    if os.path.exists(font_path):
-        # 註冊 Matplotlib 字型
-        fm.fontManager.addfont(font_path)
-        plt.rcParams['font.sans-serif'] = ['WenQuanYi Zen Hei', 'DejaVu Sans']
+def load_font_file():
+    font_filename = "NotoSansTC-Regular.ttf"
+    if not os.path.exists(font_filename):
+        # 備用下載來源 1 & 2
+        urls = [
+            "https://github.com/google/fonts/raw/main/ofl/notosanstc/NotoSansTC-Regular.ttf",
+            "https://cdn.jsdelivr.net/gh/google/fonts@main/ofl/notosanstc/NotoSansTC-Regular.ttf"
+        ]
+        for url in urls:
+            try:
+                urllib.request.urlretrieve(url, font_filename)
+                if os.path.exists(font_filename) and os.path.getsize(font_filename) > 100000:
+                    break
+            except Exception:
+                continue
+                
+    if os.path.exists(font_filename) and os.path.getsize(font_filename) > 100000:
+        fm.fontManager.addfont(font_filename)
+        font_prop = fm.FontProperties(fname=font_filename)
+        plt.rcParams['font.sans-serif'] = [font_prop.get_name(), 'DejaVu Sans']
         plt.rcParams['axes.unicode_minus'] = False
-        font_prop = fm.FontProperties(fname=font_path)
-        
-        # 註冊 ReportLab PDF 字型
-        pdfmetrics.registerFont(TTFont('ZenHei', font_path))
-        return font_prop, 'ZenHei'
+        return font_prop, font_filename
     return None, None
 
-font_prop, pdf_font_name = setup_system_chinese_font()
+font_prop, font_file_path = load_font_file()
 
 st.set_page_config(page_title="嬰幼兒護理與發展評估系統", page_icon="👶", layout="centered")
 
@@ -90,13 +93,20 @@ def plot_official_growth_chart(title_text, x_age, y_val, ylabel_text, ref_3, ref
 
     ax.scatter([x_age], [y_val], color='#FF4081', s=120, zorder=5, edgecolor='black', linewidth=1.5, label='寶寶落點')
     
-    ax.annotate(f' 寶寶: ({x_age}個月, {y_val})', (x_age, y_val), textcoords="offset points", xytext=(8,10),
-                ha='left', fontweight='bold', color='#D81B60', fontproperties=font_prop,
-                bbox=dict(boxstyle="round,pad=0.3", fc="#FFF9C4", ec="#FF4081", lw=1, alpha=0.9))
-    
-    ax.set_title(title_text, fontsize=13, fontweight='bold', pad=10, fontproperties=font_prop)
-    ax.set_xlabel('月齡 (個月 / Months)', fontsize=10, fontproperties=font_prop)
-    ax.set_ylabel(ylabel_text, fontsize=10, fontproperties=font_prop)
+    if font_prop:
+        ax.annotate(f' 寶寶: ({x_age}個月, {y_val})', (x_age, y_val), textcoords="offset points", xytext=(8,10),
+                    ha='left', fontweight='bold', color='#D81B60', fontproperties=font_prop,
+                    bbox=dict(boxstyle="round,pad=0.3", fc="#FFF9C4", ec="#FF4081", lw=1, alpha=0.9))
+        ax.set_title(title_text, fontsize=13, fontweight='bold', pad=10, fontproperties=font_prop)
+        ax.set_xlabel('月齡 (個月 / Months)', fontsize=10, fontproperties=font_prop)
+        ax.set_ylabel(ylabel_text, fontsize=10, fontproperties=font_prop)
+    else:
+        ax.annotate(f' 寶寶: ({x_age}M, {y_val})', (x_age, y_val), textcoords="offset points", xytext=(8,10),
+                    ha='left', fontweight='bold', color='#D81B60',
+                    bbox=dict(boxstyle="round,pad=0.3", fc="#FFF9C4", ec="#FF4081", lw=1, alpha=0.9))
+        ax.set_title(title_text, fontsize=13, fontweight='bold', pad=10)
+        ax.set_xlabel('Age (Months)', fontsize=10)
+        ax.set_ylabel(ylabel_text, fontsize=10)
 
     ax.set_xlim(0, 25)
     ax.grid(True, linestyle=':', alpha=0.6)
@@ -275,89 +285,141 @@ with tab2:
         st.subheader("📄 下載寶寶成長紀念卡")
         st.write("您可以將本次測量與檢核結果下載成溫馨卡片保存：")
         
-        def create_warm_pdf():
-            buffer = io.BytesIO()
-            doc = SimpleDocTemplate(buffer, pagesize=letter, leftMargin=36, rightMargin=36, topMargin=36, bottomMargin=36)
-            elements = []
-            
-            f_name = pdf_font_name if pdf_font_name else 'Helvetica'
-            
-            title_style = ParagraphStyle(
-                name='WarmTitle',
-                fontName=f_name,
-                fontSize=20,
-                leading=24,
-                textColor=colors.HexColor('#D81B60'),
-                alignment=1
-            )
-            
-            sub_style = ParagraphStyle(
-                name='WarmSub',
-                fontName=f_name,
-                fontSize=11,
-                leading=16,
-                textColor=colors.HexColor('#5D4037'),
-                alignment=1
-            )
-            
-            body_style = ParagraphStyle(
-                name='WarmBody',
-                fontName=f_name,
-                fontSize=10,
-                leading=15,
-                textColor=colors.HexColor('#3E2723')
-            )
-            
-            elements.append(Paragraph("<b>🌸 寶寶成長與發展小卡 🌸</b>", title_style))
-            elements.append(Spacer(1, 6))
-            elements.append(Paragraph("專屬居家照護紀錄 ｜ 陪伴寶寶快樂健康成長", sub_style))
-            elements.append(Spacer(1, 15))
-            
+        def generate_html_pdf():
             today_str = datetime.date.today().strftime("%Y年%m月%d日")
             
-            data = [
-                [Paragraph("<b>記錄日期</b>", body_style), Paragraph(today_str, body_style), Paragraph("<b>寶寶月齡</b>", body_style), Paragraph(f"{months} 個月", body_style)],
-                [Paragraph("<b>寶寶性別</b>", body_style), Paragraph(gender, body_style), Paragraph("<b>檢核階段</b>", body_style), Paragraph(stage, body_style)],
-                [Paragraph("<b>身高落點</b>", body_style), Paragraph(f"{height} cm", body_style), Paragraph("<b>體重落點</b>", body_style), Paragraph(f"{weight} kg", body_style)],
-                [Paragraph("<b>頭圍落點</b>", body_style), Paragraph(f"{head} cm", body_style), Paragraph("<b>評估結果</b>", body_style), Paragraph(result_text, body_style)],
-            ]
-            
-            t = Table(data, colWidths=[80, 170, 80, 190])
-            t.setStyle(TableStyle([
-                ('BACKGROUND', (0,0), (-1,-1), colors.HexColor('#FFFDE7')),
-                ('GRID', (0,0), (-1,-1), 1, colors.HexColor('#FFE082')),
-                ('ALIGN', (0,0), (-1,-1), 'CENTER'),
-                ('VALIGN', (0,0), (-1,-1), 'MIDDLE'),
-                ('PADDING', (0,0), (-1,-1), 8),
-            ]))
-            elements.append(t)
-            elements.append(Spacer(1, 20))
-            
-            elements.append(Paragraph("<b>💌 護理師的溫馨小叮嚀：</b>", ParagraphStyle('Title2', fontName=f_name, fontSize=12, textColor=colors.HexColor('#880E4F'))))
-            elements.append(Spacer(1, 6))
-            
-            advice_text = """
-            1. 每個寶寶都有獨立發展的步調，建議持續觀察並維持規律的作息與營養。<br/>
-            2. 定期記錄身高、體重與頭圍，只要曲線穩定沿著百分位區間成長就是好棒棒！<br/>
-            3. 若檢核發現警訊指標未通過，請保持平常心，下一次兒童健檢時可帶本卡片諮詢小兒科醫師。
-            """
-            
-            advice_table = Table([[Paragraph(advice_text, body_style)]], colWidths=[520])
-            advice_table.setStyle(TableStyle([
-                ('BACKGROUND', (0,0), (-1,-1), colors.HexColor('#F3E5F5')),
-                ('BOX', (0,0), (-1,-1), 1, colors.HexColor('#CE93D8')),
-                ('PADDING', (0,0), (-1,-1), 10),
-            ]))
-            
-            elements.append(advice_table)
-            doc.build(elements)
-            buffer.seek(0)
-            return buffer
+            # HTML / CSS 精美卡片範本
+            html_content = f"""
+            <!DOCTYPE html>
+            <html>
+            <head>
+            <meta charset="utf-8">
+            <style>
+                @page {{
+                    size: A4;
+                    margin: 20mm;
+                    background-color: #FFFDF9;
+                }}
+                body {{
+                    font-family: "Noto Sans CJK TC", "PingFang TC", "Microsoft JhengHei", sans-serif;
+                    color: #3E2723;
+                    margin: 0;
+                    padding: 0;
+                }}
+                .header {{
+                    text-align: center;
+                    border-bottom: 2px dashed #FFB74D;
+                    padding-bottom: 15px;
+                    margin-bottom: 25px;
+                }}
+                .title {{
+                    font-size: 24pt;
+                    font-weight: bold;
+                    color: #E91E63;
+                    margin-bottom: 5px;
+                }}
+                .subtitle {{
+                    font-size: 11pt;
+                    color: #8D6E63;
+                }}
+                .card-table {{
+                    width: 100%;
+                    border-collapse: collapse;
+                    margin-bottom: 25px;
+                    background-color: #FFF8E1;
+                    border-radius: 8px;
+                    overflow: hidden;
+                    border: 1px solid #FFE082;
+                }}
+                .card-table td {{
+                    padding: 12px 15px;
+                    font-size: 11pt;
+                    border-bottom: 1px solid #FFE082;
+                }}
+                .label {{
+                    font-weight: bold;
+                    color: #5D4037;
+                    width: 20%;
+                    background-color: #FFF3E0;
+                }}
+                .val {{
+                    width: 30%;
+                }}
+                .advice-box {{
+                    background-color: #F3E5F5;
+                    border: 1px solid #CE93D8;
+                    border-radius: 8px;
+                    padding: 18px;
+                }}
+                .advice-title {{
+                    font-size: 13pt;
+                    font-weight: bold;
+                    color: #880E4F;
+                    margin-bottom: 10px;
+                }}
+                .advice-list {{
+                    font-size: 10.5pt;
+                    line-height: 1.6;
+                    color: #4A148C;
+                    margin: 0;
+                    padding-left: 20px;
+                }}
+            </style>
+            </head>
+            <body>
+                <div class="header">
+                    <div class="title">🌸 寶寶成長與發展小卡 🌸</div>
+                    <div class="subtitle">專屬居家照護紀錄 ｜ 陪伴寶寶快樂健康成長</div>
+                </div>
 
-        pdf_data = create_warm_pdf()
-        st.download_button(
-            label="📥 下載寶寶成長紀念卡 (PDF)",
-            data=pdf_data,
-            file_name=f"寶寶成長紀念卡_{datetime.date.today()}.pdf",
-            mime="application/pdf"
-        )
+                <table class="card-table">
+                    <tr>
+                        <td class="label">記錄日期</td>
+                        <td class="val">{today_str}</td>
+                        <td class="label">寶寶月齡</td>
+                        <td class="val">{months} 個月</td>
+                    </tr>
+                    <tr>
+                        <td class="label">寶寶性別</td>
+                        <td class="val">{gender}</td>
+                        <td class="label">檢核階段</td>
+                        <td class="val">{stage}</td>
+                    </tr>
+                    <tr>
+                        <td class="label">身高落點</td>
+                        <td class="val">{height} cm</td>
+                        <td class="label">體重落點</td>
+                        <td class="val">{weight} kg</td>
+                    </tr>
+                    <tr>
+                        <td class="label">頭圍落點</td>
+                        <td class="val">{head} cm</td>
+                        <td class="label">評估結果</td>
+                        <td class="val" style="font-weight:bold; color:#D81B60;">{result_text}</td>
+                    </tr>
+                </table>
+
+                <div class="advice-box">
+                    <div class="advice-title">💌 護理師的溫馨小叮嚀：</div>
+                    <ol class="advice-list">
+                        <li>每個寶寶都有獨立發展的步調，建議持續觀察並維持規律的作息與營養。</li>
+                        <li>定期記錄身高、體重與頭圍，只要曲線穩定沿著百分位區間成長就是好棒棒！</li>
+                        <li>若檢核發現警訊指標未通過，請保持平常心，下一次兒童健檢時可帶本卡片諮詢小兒科醫師。</li>
+                    </ol>
+                </div>
+            </body>
+            </html>
+            """
+            pdf_bytes = HTML(string=html_content).write_pdf()
+            return pdf_bytes
+
+        try:
+            pdf_data = generate_html_pdf()
+            st.download_button(
+                label="📥 下載寶寶成長紀念卡 (PDF)",
+                data=pdf_data,
+                file_name=f"寶寶成長紀念卡_{datetime.date.today()}.pdf",
+                mime="application/pdf"
+            )
+        except Exception as e:
+            st.error(f"PDF 生成中，請稍候：{e}")
