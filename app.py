@@ -93,6 +93,23 @@ def generate_curve(ref_3, ref_50, ref_97, x_mesh):
     p85 = p50 + 0.55 * (p97 - p50)
     return p3, p15, p50, p85, p97
 
+def format_age_months(months):
+    displayed_months = f"{months:g}"
+    whole_months = max(0, int(months + 0.5))
+    years, remaining_months = divmod(whole_months, 12)
+
+    if years == 0:
+        age_description = f"0歲{remaining_months}個月"
+    elif remaining_months == 0:
+        age_description = f"{years}歲"
+    elif remaining_months == 6:
+        age_description = f"{years}歲半 / {years}歲6個月"
+    else:
+        age_description = f"{years}歲{remaining_months}個月"
+
+    approximate = "約 " if months != whole_months else ""
+    return f"{displayed_months} 個月（{approximate}{age_description}）"
+
 def plot_official_growth_chart(title_text, x_age, y_val, ylabel_text, ref_3, ref_50, ref_97):
     x_mesh = np.linspace(0, 24, 200)
     p3, p15, p50, p85, p97 = generate_curve(ref_3, ref_50, ref_97, x_mesh)
@@ -116,14 +133,14 @@ def plot_official_growth_chart(title_text, x_age, y_val, ylabel_text, ref_3, ref
     ax.scatter([x_age], [y_val], color='#FF4081', s=120, zorder=5, edgecolor='black', linewidth=1.5, label='寶寶落點')
     
     if font_prop:
-        ax.annotate(f' 寶寶: ({x_age}個月, {y_val})', (x_age, y_val), textcoords="offset points", xytext=(8,10),
+        ax.annotate(f' 寶寶: ({format_age_months(x_age)}, {y_val})', (x_age, y_val), textcoords="offset points", xytext=(8,10),
                     ha='left', fontweight='bold', color='#D81B60', fontproperties=font_prop,
                     bbox=dict(boxstyle="round,pad=0.3", fc="#FFF9C4", ec="#FF4081", lw=1, alpha=0.9))
         ax.set_title(title_text, fontsize=13, fontweight='bold', pad=10, fontproperties=font_prop)
         ax.set_xlabel('月齡 (個月)', fontsize=10, fontproperties=font_prop)
         ax.set_ylabel(ylabel_text, fontsize=10, fontproperties=font_prop)
     else:
-        ax.annotate(f' 寶寶: ({x_age}M, {y_val})', (x_age, y_val), textcoords="offset points", xytext=(8,10),
+        ax.annotate(f' 寶寶: ({format_age_months(x_age)}, {y_val})', (x_age, y_val), textcoords="offset points", xytext=(8,10),
                     ha='left', fontweight='bold', color='#D81B60',
                     bbox=dict(boxstyle="round,pad=0.3", fc="#FFF9C4", ec="#FF4081", lw=1, alpha=0.9))
         ax.set_title(title_text, fontsize=13, fontweight='bold', pad=10)
@@ -161,7 +178,7 @@ with tab1:
     st.session_state["baby_months"] = months
     st.session_state["baby_gender"] = gender
     
-    st.info(f"💡 目前計算精確月齡為：**{months} 個月** ({days} 天)")
+    st.info(f"💡 目前計算精確月齡為：**{format_age_months(months)}** ({days} 天)")
     
     st.subheader("輸入測量數據")
     c1, c2, c3 = st.columns(3)
@@ -186,7 +203,7 @@ with tab1:
         
         st.markdown("---")
         st.subheader("📊 評估結果分析與官方曲線圖")
-        st.success(f"**【{gender}｜{months}個月】** 檢測成果：")
+        st.success(f"**【{gender}｜{format_age_months(months)}】** 檢測成果：")
         
         m1, m2, m3 = st.columns(3)
         m1.metric("身高百分位", h_pct, f"{height} cm")
@@ -324,15 +341,15 @@ with tab2:
         
         result_text = ""
         if star_fail >= 1 or total_fail >= 2:
-            result_text = "建議諮詢小兒科醫師（未達標準）"
-            st.error(f"**🔴 {result_text}**")
-            st.write(f"（檢測發現：有 {star_fail} 項關鍵警訊指標需注意，總計 {total_fail} 項未達標準）")
+            result_text = "🟠 建議進一步專業諮詢與引導"
+            st.warning(f"**{result_text}**")
+            st.write(f"（檢核發現：有 {star_fail} 項關鍵指標建議留意，總計 {total_fail} 項可持續練習與觀察）")
         elif total_fail == 1:
-            result_text = "持續觀察並於 2-4 週後複評"
-            st.warning(f"**🟡 {result_text}**")
+            result_text = "🟡 發展中 / 建議持續觀察（月齡初期練習中）"
+            st.warning(f"**{result_text}**")
         else:
-            result_text = "發展非常符合進度（完全通過）"
-            st.success(f"**🟢 {result_text}**")
+            result_text = "🟢 發展非常符合進度"
+            st.success(f"**{result_text}**")
             st.balloons()
             
         st.markdown("---")
@@ -412,7 +429,7 @@ with tab2:
                 ],
                 [
                     Paragraph(f"<b>{today_str}</b>", card_val_style),
-                    Paragraph(f"<b>{st.session_state.get('baby_months', 4.0)} 個月</b>", card_val_style),
+                    Paragraph(f"<b>{format_age_months(st.session_state.get('baby_months', 4.0))}</b>", card_val_style),
                     Paragraph(f"<b>{st.session_state.get('baby_gender', '男寶寶')}</b>", card_val_style),
                     Paragraph(f"<b>{stage.split('（')[0]}</b>", card_val_style)
                 ]
@@ -481,7 +498,7 @@ with tab2:
             advice_text = """
             1. 每個寶寶都有獨立發展的步調，請持續保持規律作息與充足營養！<br/>
             2. 定期記錄身高、體重與頭圍，只要曲線穩定沿著百分位區間成長就是棒棒噠！<br/>
-            3. 若檢核發現警訊指標未通過，請保持平常心，下一次兒童健檢時可帶本卡片諮詢小兒科醫師。
+            3. 若檢核發現需要持續留意的指標，請保持平常心，下一次兒童健檢時可帶本卡片與小兒科醫師討論。
             """
             
             elements.append(Paragraph("<b>★ 護理師保母的溫馨小叮嚀：</b>", ParagraphStyle('AdviceHead', fontName=f_name, fontSize=11, textColor=colors.HexColor('#6A1B9A'))))
