@@ -340,11 +340,11 @@ with tab2:
         st.subheader("🎯 發展評估結果")
         
         result_text = ""
-        if star_fail >= 1 or total_fail >= 2:
+        if star_fail > 2:
             result_text = "🟠 建議進一步專業諮詢與引導"
             st.warning(f"**{result_text}**")
             st.write(f"（檢核發現：有 {star_fail} 項關鍵指標建議留意，總計 {total_fail} 項可持續練習與觀察）")
-        elif total_fail == 1:
+        elif total_fail > 0:
             result_text = "🟡 發展中 / 建議持續觀察（月齡初期練習中）"
             st.warning(f"**{result_text}**")
         else:
@@ -481,9 +481,10 @@ with tab2:
             elements.append(Spacer(1, 15))
             
             # 檢核結果貼紙
+            poster_result_text = result_text.replace("🟡", "☑", 1)
             data_result = [
                 [Paragraph("<b>★ 居托官方發展檢核結果</b>", ParagraphStyle('R1', fontName=f_name, fontSize=10, textColor=colors.HexColor('#0277BD'), alignment=1))],
-                [Paragraph(f"<b>{result_text}</b>", ParagraphStyle('R2', fontName=f_name, fontSize=14, textColor=colors.HexColor('#2E7D32'), alignment=1))]
+                [Paragraph(f"<b>{poster_result_text}</b>", ParagraphStyle('R2', fontName=f_name, fontSize=14, textColor=colors.HexColor('#2E7D32'), alignment=1))]
             ]
             t_result = Table(data_result, colWidths=[520])
             t_result.setStyle(TableStyle([
